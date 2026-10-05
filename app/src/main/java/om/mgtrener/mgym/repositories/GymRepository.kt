@@ -31,13 +31,13 @@ class GymRepository(private val helper: GymDatabase) {
         return GymData(workouts, sets)
     }
     // Archive an old curl-only active session without deleting its sets.
-    fun prepareBenchDiary() = transaction {
+    fun prepareDiary() = transaction {
         val active = read().active
-        if(active != null && Exercise.BENCH !in active.exercises) {
+        if(active != null && active.exercises.none { it in trainingExercises }) {
             if(read().setsFor(active.id).isEmpty()) db.delete("workouts","id=?",arrayOf(active.id.toString()))
             else db.execSQL("UPDATE workouts SET finished_at=MAX(started_at,?) WHERE id=?",arrayOf<Any>(System.currentTimeMillis(),active.id))
         }
-        if(draft().exercise != Exercise.BENCH) saveDraft(Draft())
+        if(draft().exercise !in trainingExercises) saveDraft(Draft(weight="",reps=""))
     }
     fun setting(key: String): String? = db.rawQuery("SELECT value FROM settings WHERE key=?", arrayOf(key)).use {
         if(it.moveToFirst()) it.getString(0) else null

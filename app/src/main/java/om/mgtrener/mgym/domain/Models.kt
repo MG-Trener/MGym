@@ -1,8 +1,12 @@
 package om.mgtrener.mgym.domain
 
 enum class Exercise(val title: String, val short: String) {
-    BENCH("Жим штанги лёжа", "Жим"), CURL("Подъём штанги на бицепс", "Бицепс")
+    BENCH("Жим штанги лёжа", "Жим"),
+    DEADLIFT("Становая тяга", "Тяга"),
+    SQUAT("Приседания", "Присед"),
+    CURL("Подъём штанги на бицепс", "Бицепс")
 }
+val trainingExercises = listOf(Exercise.BENCH, Exercise.DEADLIFT, Exercise.SQUAT)
 enum class SetKind(val title: String) {
     WARMUP("Разминка"), WORK("Рабочий"), TOP("Тяжёлый"), BACKOFF("Back-off"), TEST("Тест"), CUSTOM("Другой")
 }
@@ -43,7 +47,15 @@ data class GymData(val workouts: List<Workout> = emptyList(), val sets: List<Lif
 }
 
 
-// Keep legacy exercises in backups, outside the current bench diary.
+// Keep legacy curls in backups, outside the current training diary.
+fun GymData.trainingDiary(): GymData {
+    val visibleSets = sets.filter { it.exercise in trainingExercises }
+    val ids = visibleSets.map { it.workoutId }.toSet()
+    val visible = workouts.filter { it.id in ids || (it.finishedAt == null && it.exercises.any { e -> e in trainingExercises }) }
+        .map { workout -> workout.copy(exercises = workout.exercises.filter { it in trainingExercises }) }
+    return GymData(visible, visibleSets)
+}
+
 fun GymData.benchOnly(): GymData {
     val bench = sets.filter { it.exercise == Exercise.BENCH }
     val ids = bench.map { it.workoutId }.toSet()

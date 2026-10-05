@@ -14,7 +14,7 @@ object WorkoutText {
         return buildString {
             appendLine("MGym · " + Instant.ofEpochMilli(workout.startedAt).atZone(ZoneId.systemDefault())
                 .format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")))
-            workout.exercises.filter {it == Exercise.BENCH}.forEach { exercise ->
+            workout.exercises.filter {it in trainingExercises}.forEach { exercise ->
                 val sets = data.setsFor(id).filter { it.exercise == exercise }
                 if(sets.isNotEmpty()) {
                     appendLine(); appendLine(exercise.title)

@@ -55,8 +55,8 @@ fun GymApp(model: GymViewModel) {
 
                         WorkoutScreen(model) { workoutOpen = false }
                     }
-                    tab == 0 -> TodayScreen(model, {
-                        if(active != null) workoutOpen = true else model.start(listOf(Exercise.BENCH))
+                    tab == 0 -> TodayScreen(model, { exercise ->
+                        if(active != null) workoutOpen = true else model.start(listOf(exercise))
                     }, { selectedWorkout = it })
                     tab == 1 -> CalendarScreen(model)
                     tab == 2 -> ProgressScreen(model.data)

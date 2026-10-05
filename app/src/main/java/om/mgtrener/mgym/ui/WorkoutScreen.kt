@@ -35,12 +35,13 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun WorkoutScreen(model: GymViewModel, collapse: () -> Unit = {}) {
     val active = model.data.active ?: return
+    val exercise = active.exercises.firstOrNull { it in trainingExercises } ?: return
     val focus = LocalFocusManager.current
     var editing by remember { mutableStateOf<LiftSet?>(null) }
     var removing by remember { mutableStateOf<LiftSet?>(null) }
     var finish by remember { mutableStateOf(false) }
     val draft = model.draft
-    val sets = model.data.setsFor(active.id).filter { it.exercise == Exercise.BENCH }
+    val sets = model.data.setsFor(active.id).filter { it.exercise == exercise }
     val valid = runCatching {draft.toSet(active.id)}.isSuccess
     val empty = draft.weight.isBlank() && draft.reps.isBlank()
     Column(Modifier.fillMaxSize().imePadding(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -48,12 +49,12 @@ fun WorkoutScreen(model: GymViewModel, collapse: () -> Unit = {}) {
             TextButton(onClick = collapse, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(36.dp).semantics { contentDescription = "Свернуть тренировку" }) { Text("‹", fontSize = 28.sp) }
             Column(Modifier.weight(1f)) {
                 Text("В работе", style = MaterialTheme.typography.titleLarge)
-                Text("MGYM / BENCH PRESS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("MGYM / ${exercise.short.uppercase()}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(Instant.ofEpochMilli(active.startedAt).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm")),
                 style = MaterialTheme.typography.labelLarge, color = Lime)
         }
-        Text("Жим штанги лёжа",style=MaterialTheme.typography.titleMedium,color=Lime)
+        Text(exercise.title,style=MaterialTheme.typography.titleMedium,color=Lime)
         SummaryCard(sets)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
             Text("Подходы",style=MaterialTheme.typography.titleMedium)
@@ -64,7 +65,7 @@ fun WorkoutScreen(model: GymViewModel, collapse: () -> Unit = {}) {
             Text("Повторы",Modifier.weight(1f),style=MaterialTheme.typography.labelSmall)
         }
         SetTable(sets,Modifier.weight(1f),!model.busy,
-            reorder={model.reorder(active.id,Exercise.BENCH,it)},edit={editing=it},delete={removing=it},
+            reorder={model.reorder(active.id,exercise,it)},edit={editing=it},delete={removing=it},
             footer={
                 Column(Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {

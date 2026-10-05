@@ -53,7 +53,7 @@ fun CalendarScreen(model: GymViewModel) {
                 if(mode==0) year++ else ym.plusMonths(1).let {year=it.year;month=it.monthValue}
             },enabled=if(mode==0) year<2099 else ym<YearMonth.of(2099,12)) {Text("→")}
         }
-        Text("${workouts.size} тренировок · жим лёжа",
+        Text("${workouts.size} тренировок · жим / тяга / присед",
             style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         if(mode==0) {
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)) {
@@ -116,7 +116,7 @@ fun CalendarScreen(model: GymViewModel) {
                     }
                     if(workout==null) Text("В этот день тренировок нет",style=MaterialTheme.typography.bodyMedium)
                     else {
-                        if(sessions.size>1) CompactTabs(sessions.map {date(it.startedAt).substringAfter("· ")},selected) {selected=it}
+                        if(sessions.size>1) CompactTabs(sessions.map {"${it.exercises.first().short} ${date(it.startedAt).substringAfter("· ")}"},selected) {selected=it}
                         Box(Modifier.weight(1f)) {WorkoutDetail(data,workout.id,reorder=model::reorder,enabled=!model.busy,save=model::saveCompleted,delete=model::removeCompleted)}
                     }
                 }

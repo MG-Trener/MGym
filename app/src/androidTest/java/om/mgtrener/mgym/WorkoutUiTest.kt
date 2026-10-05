@@ -26,6 +26,41 @@ class WorkoutUiTest {
         file.outputStream().use { (if(dialog) compose.onNode(isDialog()) else compose.onRoot()).captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
     }
     private fun read() = GymRepository(GymDatabase(context)).let {r->try {r.read()} finally {r.close()} }
+    @Test fun deadliftAndSquatStartFromHomeAndHaveSeparateProgress() {
+        check(context.packageName.endsWith(".uitest"))
+        context.deleteDatabase("mgym.db")
+        ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitUntil(15000) {compose.onAllNodesWithContentDescription("Начать: Становая тяга").fetchSemanticsNodes().isNotEmpty()}
+            capture("home-three")
+            compose.onNodeWithContentDescription("Начать: Становая тяга").performClick()
+            compose.waitUntil(10000) {read().active?.exercises == listOf(Exercise.DEADLIFT)}
+            compose.onNodeWithContentDescription("Вес, кг").performTextReplacement("150")
+            compose.onNodeWithContentDescription("Повторы").performTextReplacement("5")
+            compose.onNodeWithText("Завершить тренировку").performClick()
+            compose.onNodeWithText("Завершить",useUnmergedTree=true).performClick()
+            compose.waitUntil(10000) {read().completed.size==1}
+            compose.onNodeWithText("← Сегодня").performClick()
+            compose.onNodeWithContentDescription("Начать: Приседания").performClick()
+            compose.waitUntil(10000) {read().active?.exercises == listOf(Exercise.SQUAT)}
+            compose.onNodeWithContentDescription("Вес, кг").performTextReplacement("120")
+            compose.onNodeWithContentDescription("Повторы").performTextReplacement("5")
+            compose.onNodeWithText("Завершить тренировку").performClick()
+            compose.onNodeWithText("Завершить",useUnmergedTree=true).performClick()
+            compose.waitUntil(10000) {read().completed.size==2}
+            compose.onNodeWithText("← Сегодня").performClick()
+            compose.onNodeWithText("Прогресс").performClick()
+            compose.onNodeWithText("Жим",useUnmergedTree=true).performClick()
+            compose.onNodeWithText("ИТОГО ЗА ПЕРИОД · 0 тренировок").assertIsDisplayed()
+            compose.onNodeWithText("Тяга",useUnmergedTree=true).performClick()
+            compose.onNodeWithText("ИТОГО ЗА ПЕРИОД · 1 тренировок").assertIsDisplayed()
+            compose.onNodeWithText("750").assertIsDisplayed()
+            compose.onNodeWithText("Присед",useUnmergedTree=true).performClick()
+            compose.onNodeWithText("600").assertIsDisplayed()
+            capture("three-movements-progress")
+            assertEquals(Exercise.DEADLIFT,read().completed.first {read().setsFor(it.id).single().weight==150.0}.exercises.single())
+            assertEquals(Exercise.SQUAT,read().completed.first {read().setsFor(it.id).single().weight==120.0}.exercises.single())
+        }
+    }
     @Test fun compactScreensDragCopyCalendarAndProgress() {
         check(context.packageName.endsWith(".uitest"))
         context.deleteDatabase("mgym.db")
@@ -141,9 +176,9 @@ class WorkoutUiTest {
         check(context.packageName.endsWith(".uitest"))
         context.deleteDatabase("mgym.db")
         ActivityScenario.launch(MainActivity::class.java).use {scenario ->
-            compose.waitUntil(15000) {compose.onAllNodesWithText("Начать тренировку").fetchSemanticsNodes().isNotEmpty()}
+            compose.waitUntil(15000) {compose.onAllNodesWithContentDescription("Начать: Жим штанги лёжа").fetchSemanticsNodes().isNotEmpty()}
             assertTrue(read().sets.isEmpty());assertTrue(read().workouts.isEmpty())
-            compose.onNodeWithText("Начать тренировку").performClick()
+            compose.onNodeWithContentDescription("Начать: Жим штанги лёжа").performClick()
             compose.waitUntil(10000) {compose.onAllNodesWithContentDescription("Добавить строку").fetchSemanticsNodes().isNotEmpty()}
             compose.onNodeWithContentDescription("Вес, кг").assertTextEquals("")
             compose.onNodeWithContentDescription("Повторы").assertTextEquals("")

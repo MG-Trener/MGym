@@ -1,10 +1,12 @@
 package om.mgtrener.mgym.ui
 
 import android.content.Intent
+import android.Manifest
 import androidx.core.net.toUri
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import om.mgtrener.mgym.BuildConfig
+import om.mgtrener.mgym.services.BackgroundUpdates
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,6 +20,11 @@ import androidx.compose.ui.unit.dp
 fun SettingsScreen(model: GymViewModel) {
     val context=LocalContext.current
     var delete by remember { mutableStateOf(false) }
+    var automaticUpdates by remember { mutableStateOf(BackgroundUpdates.enabled(context)) }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) BackgroundUpdates.schedule(context)
+        else model.notify("Чтобы получать уведомления об обновлениях, разреши их для MGym в настройках Android")
+    }
     val exportJson = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let { uri -> model.export(uri,false) } }
     val exportCsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { it?.let { uri -> model.export(uri,true) } }
     val importJson = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(model::inspect) }
@@ -45,8 +52,17 @@ fun SettingsScreen(model: GymViewModel) {
     }
     Panel {
         Text("Обновление приложения", style = MaterialTheme.typography.titleLarge)
-        Text("Версия ${BuildConfig.VERSION_NAME} · жим лёжа")
-        Text("Обновления из MG-Trener/MGym на GitHub. Проверка выполняется только по нажатию.",style=MaterialTheme.typography.bodySmall)
+        Text("Версия ${BuildConfig.VERSION_NAME} · жим / тяга / присед")
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+            Text("Проверять в фоне",Modifier.padding(top=12.dp))
+            Switch(automaticUpdates,{ enabled ->
+                automaticUpdates=enabled
+                BackgroundUpdates.setEnabled(context,enabled)
+                if (enabled && !BackgroundUpdates.canNotify(context))
+                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            },modifier=Modifier.semantics {contentDescription="Фоновая проверка обновлений"})
+        }
+        Text("Проверяем примерно раз в день при наличии сети. О новой версии сообщим уведомлением. Его нажатие откроет APK для скачивания; установку подтверждает Android.",style=MaterialTheme.typography.bodySmall)
         OutlinedButton(onClick=model::checkUpdate,enabled=!model.checkingUpdate) {Text(if(model.checkingUpdate) "Проверяем…" else "Проверить обновления")}
         model.update?.let { update ->
             Text(update.message,style=MaterialTheme.typography.bodySmall)
@@ -62,7 +78,7 @@ fun SettingsScreen(model: GymViewModel) {
     Panel {
         Text("О MGym", style = MaterialTheme.typography.titleLarge)
         Text("Тренировочные данные хранятся локально на устройстве.")
-        Text("Без регистрации и рекламы. История не отправляется в интернет. Расчётный e1RM — статистическая оценка, а не проверенный максимум.")
+        Text("MGym сделан на энтузиазме спортсмена и бесплатен для всех желающих. Без регистрации и рекламы. История не отправляется в интернет. Расчётный e1RM — статистическая оценка, а не проверенный максимум.")
         HorizontalDivider()
         Text("Разработчик", style = MaterialTheme.typography.titleMedium)
         Text("Михаил Гаврилычев · +7 701 870 93 84", color = MaterialTheme.colorScheme.onSurfaceVariant)

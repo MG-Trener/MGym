@@ -46,13 +46,47 @@ class AnalyticsTest {
         assertTrue(data.benchOnly().sets.isEmpty())
         assertTrue(Achievements.evaluate(data).all {it.unlockedAt==null})
     }
+    @Test fun trainingDiaryIncludesThreeMovementsWithoutCurls() {
+        val workouts = listOf(Exercise.BENCH,Exercise.DEADLIFT,Exercise.SQUAT,Exercise.CURL)
+            .mapIndexed { i,exercise -> Workout((i+1).toLong(),(i+1).toLong(),(i+2).toLong(),listOf(exercise)) }
+        val sets = workouts.map { LiftSet(workoutId=it.id,exercise=it.exercises.single(),weight=it.id*40.0,reps=5) }
+        val visible = GymData(workouts,sets).trainingDiary()
+        assertEquals(3,visible.completed.size)
+        assertEquals(setOf(Exercise.BENCH,Exercise.DEADLIFT,Exercise.SQUAT),visible.sets.map {it.exercise}.toSet())
+        assertEquals(listOf(200.0,400.0,600.0),trainingExercises.map { exercise ->
+            Analytics.summarize(visible.completedSets().filter {it.exercise==exercise}).volume
+        })
+    }
     @Test fun achievementsRequireCompletionAndRetainEarliestDate() {
         val active = GymData(listOf(Workout(1,100,null,listOf(Exercise.BENCH))),listOf(set()))
         assertTrue(Achievements.evaluate(active).all { it.unlockedAt == null })
         val done = active.copy(workouts = listOf(Workout(1,100,200,listOf(Exercise.BENCH)),Workout(2,300,400,listOf(Exercise.BENCH))),
             sets = active.sets + set().copy(workoutId = 2))
-        assertEquals(200L, Achievements.evaluate(done).first { it.title == "100 CLUB" }.unlockedAt)
+        assertEquals(200L, Achievements.evaluate(done).first { it.title == "Жим · 60 кг" }.unlockedAt)
         assertEquals(200L, Achievements.evaluate(done).first().unlockedAt)
+    }
+    @Test fun oneStrongWorkoutDoesNotUnlockMostAwards() {
+        val workout=Workout(1,100,200,listOf(Exercise.BENCH))
+        val data=GymData(listOf(workout),listOf(set(200.0,5)))
+        val awards=Achievements.evaluate(data)
+        assertTrue(awards.size>=25)
+        assertTrue(awards.count {it.unlockedAt!=null}<=4)
+        assertNull(awards.first {it.title=="Прогресс · Жим"}.unlockedAt)
+    }
+    @Test fun eachMovementAndImprovementHasItsOwnAwards() {
+        val workouts=listOf(Workout(1,100,200,listOf(Exercise.BENCH)),
+            Workout(2,300,400,listOf(Exercise.DEADLIFT)),
+            Workout(3,500,600,listOf(Exercise.SQUAT)),
+            Workout(4,700,800,listOf(Exercise.DEADLIFT)))
+        val sets=listOf(LiftSet(workoutId=1,exercise=Exercise.BENCH,weight=50.0,reps=5),
+            LiftSet(workoutId=2,exercise=Exercise.DEADLIFT,weight=80.0,reps=5),
+            LiftSet(workoutId=3,exercise=Exercise.SQUAT,weight=70.0,reps=5),
+            LiftSet(workoutId=4,exercise=Exercise.DEADLIFT,weight=90.0,reps=5))
+        val awards=Achievements.evaluate(GymData(workouts,sets))
+        assertEquals(600L,awards.first {it.title=="Троеборье"}.unlockedAt)
+        assertEquals(800L,awards.first {it.title=="Прогресс · Тяга"}.unlockedAt)
+        assertNull(awards.first {it.title=="Прогресс · Жим"}.unlockedAt)
+        assertNull(awards.first {it.title=="Тяга · 100 кг"}.unlockedAt)
     }
     @Test fun commaDecimalAndOptionalEffort() {
         val s = Draft(weight = "42,5", reps = "8").toSet(1)

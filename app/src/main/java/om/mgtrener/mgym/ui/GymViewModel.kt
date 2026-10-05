@@ -36,8 +36,8 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
     init {
         worker.execute {
             try {
-                repository.prepareBenchDiary()
-                val loaded = repository.read().benchOnly()
+                repository.prepareDiary()
+                val loaded = repository.read().trainingDiary()
                 val restored = repository.draft()
                 val vibration = repository.setting("haptics") != "false"
                 val sound = repository.setting("sounds") != "false"
@@ -51,7 +51,7 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
         worker.execute {
             try {
                 block()
-                val loaded = repository.read().benchOnly()
+                val loaded = repository.read().trainingDiary()
                 val restored = if(reloadDraft) repository.draft() else null
                 val vibration = repository.setting("haptics") != "false"
                 val sound = repository.setting("sounds") != "false"
@@ -97,7 +97,7 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleSounds(value: Boolean) = action { repository.setSetting("sounds",value.toString()) }
     fun clear() = action(reloadDraft = true) { repository.clear() }
     fun export(uri: Uri, csv: Boolean) = action(success = { message = "Файл сохранён" }) {
-        val text = if(csv) BackupCodec.csv(repository.read().benchOnly()) else BackupCodec.encode(repository.backup())
+        val text = if(csv) BackupCodec.csv(repository.read().trainingDiary()) else BackupCodec.encode(repository.backup())
         val resolver = getApplication<Application>().contentResolver
         requireNotNull(resolver.openOutputStream(uri, "wt")) { "Не удалось открыть файл" }.bufferedWriter(Charsets.UTF_8).use { it.write(text) }
     }
@@ -121,7 +121,7 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
     fun cancelImport() { preview = null }
     fun importBackup() {
         val backup = preview ?: return
-        action(reloadDraft = true, success = { preview = null; message = "Резервная копия восстановлена" }) { repository.replace(backup); repository.prepareBenchDiary() }
+        action(reloadDraft = true, success = { preview = null; message = "Резервная копия восстановлена" }) { repository.replace(backup); repository.prepareDiary() }
     }
     fun checkUpdate() {
         if(checkingUpdate) return

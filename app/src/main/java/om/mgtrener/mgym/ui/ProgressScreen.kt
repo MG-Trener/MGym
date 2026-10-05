@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import om.mgtrener.mgym.analytics.Analytics
 import om.mgtrener.mgym.achievements.Achievements
+import om.mgtrener.mgym.achievements.TrophyGroup
 import om.mgtrener.mgym.domain.*
 import om.mgtrener.mgym.ui.theme.Lime
 import java.time.LocalDate
@@ -24,15 +25,16 @@ import kotlin.math.abs
 
 @Composable
 fun ProgressScreen(data: GymData) {
-    val exercise = Exercise.BENCH
+    var exerciseIndex by rememberSaveable { mutableIntStateOf(0) }
+    val exercise = trainingExercises[exerciseIndex]
     var period by rememberSaveable {mutableIntStateOf(0)}
     var metric by rememberSaveable {mutableIntStateOf(0)}
     var view by rememberSaveable {mutableIntStateOf(0)}
     var periodsOpen by remember {mutableStateOf(false)}
     val periods=listOf("Всё время","1 месяц","3 месяца","6 месяцев","1 год")
-    val workouts=remember(data,period) {
+    val workouts=remember(data,period,exercise) {
         val since=LocalDate.now().minusMonths(listOf(0L,1L,3L,6L,12L)[period])
-        data.completed.filter {period==0 || !day(it.startedAt).isBefore(since)}.sortedBy {it.startedAt}
+        data.completed.filter { exercise in it.exercises && (period==0 || !day(it.startedAt).isBefore(since)) }.sortedBy {it.startedAt}
     }
     val grouped=remember(data,exercise) {
         data.sets.filter {it.exercise==exercise}.groupBy {it.workoutId}
@@ -58,7 +60,7 @@ fun ProgressScreen(data: GymData) {
                 }}
             }
         }
-        Text("Жим штанги лёжа",style=MaterialTheme.typography.bodySmall,color=Lime)
+        CompactTabs(trainingExercises.map { it.short },exerciseIndex) { exerciseIndex=it }
         CompactTabs(listOf("График","Рекорды"),view) {view=it}
         if(view==0) {
             CompactTabs(listOf("e1RM","Вес","Объём","Повт."),metric) {metric=it}
@@ -146,13 +148,24 @@ fun ProgressScreen(data: GymData) {
 @Composable
 fun AchievementsScreen(data: GymData) {
     val trophies=remember(data) {Achievements.evaluate(data)}
-    SectionTitle("Твои достижения","${trophies.count {it.unlockedAt!=null}} из ${trophies.size}")
+    var group by rememberSaveable { mutableIntStateOf(0) }
+    SectionTitle("Твои достижения","${trophies.count {it.unlockedAt!=null}} из ${trophies.size} открыто")
     if(data.completed.isEmpty()) Text("Первый трофей уже близко.")
-    trophies.forEach {t ->
-        Panel {
-            Text("${if(t.unlockedAt!=null) "◆" else "◇"}  ${t.title}",color=if(t.unlockedAt!=null) Lime else MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.titleMedium)
-            Text(t.description,style=MaterialTheme.typography.bodySmall)
-            Text(t.unlockedAt?.let {date(it)} ?: "Ещё впереди",style=MaterialTheme.typography.bodySmall)
+    CompactTabs(listOf("Путь","Движ.","Ритм","Сила"),group) {group=it}
+    val selected=trophies.filter {it.group==TrophyGroup.entries[group]}
+    Text(TrophyGroup.entries[group].title,style=MaterialTheme.typography.titleMedium)
+    selected.chunked(2).forEach {row ->
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+            row.forEach {t ->
+                Surface(Modifier.weight(1f),shape=RoundedCornerShape(9.dp),color=MaterialTheme.colorScheme.surface) {
+                    Column(Modifier.padding(9.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                        Text("${if(t.unlockedAt!=null) "◆" else "◇"} ${t.title}",color=if(t.unlockedAt!=null) Lime else MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.titleSmall)
+                        Text(t.description,style=MaterialTheme.typography.labelSmall)
+                        Text(t.unlockedAt?.let {date(it)} ?: "Ещё впереди",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            if(row.size==1) Spacer(Modifier.weight(1f))
         }
     }
 }

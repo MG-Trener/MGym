@@ -83,6 +83,28 @@ class PersistenceTest {
             repository.saveCompletedSet(Draft(weight="60",reps="10").toSet(activeId))
         }
     }
+    @Test fun benchDeadliftAndSquatKeepSeparateHistoryAndBackup() {
+        val examples = listOf(Exercise.BENCH to 80.0, Exercise.DEADLIFT to 150.0, Exercise.SQUAT to 120.0)
+        examples.forEach { (exercise, weight) ->
+            val id = repository.start(listOf(exercise))
+            assertEquals(exercise, repository.draft().exercise)
+            repository.saveSet(Draft(exercise=exercise,weight=weight.toString(),reps="5").toSet(id))
+            repository.finish(id)
+        }
+        val visible = repository.read().trainingDiary()
+        assertEquals(3, visible.completed.size)
+        assertEquals(examples.map { it.first }.toSet(), visible.sets.map { it.exercise }.toSet())
+        val backup = BackupCodec.decode(BackupCodec.encode(repository.backup()))
+        repository.clear()
+        repository.replace(backup)
+        assertEquals(visible, repository.read().trainingDiary())
+        val deadlift = repository.read().trainingDiary().sets.single { it.exercise == Exercise.DEADLIFT }
+        repository.saveCompletedSet(deadlift.copy(weight=155.0))
+        val revised = repository.read().trainingDiary()
+        assertEquals(155.0,revised.sets.single { it.exercise == Exercise.DEADLIFT }.weight,0.0)
+        assertEquals(80.0,revised.sets.single { it.exercise == Exercise.BENCH }.weight,0.0)
+        assertEquals(120.0,revised.sets.single { it.exercise == Exercise.SQUAT }.weight,0.0)
+    }
     @Test fun importRejectsFractionalAndOverflowingRepetitions() {
         val id = repository.start(listOf(Exercise.BENCH))
         repository.saveSet(Draft().toSet(id))
@@ -94,7 +116,7 @@ class PersistenceTest {
     }
     @Test fun schemaVersionAndCsvEscaping() {
         val helper = GymDatabase(context)
-        assertEquals(2,helper.readableDatabase.version)
+        assertEquals(3,helper.readableDatabase.version)
         helper.close()
         val id = repository.start(listOf(Exercise.BENCH))
         repository.saveSet(Draft(comment="=HYPERLINK(\"x\")\nline").toSet(id))
@@ -138,14 +160,33 @@ class PersistenceTest {
         repository.reorder(1,Exercise.BENCH,listOf(20L,10L))
         assertEquals(listOf(20L,10L),repository.read().sets.map {it.id})
     }
+    @Test fun upgradeVersionTwoKeepsSetsAndAllowsNewMovements() {
+        repository.close()
+        context.openOrCreateDatabase("mgym.db",0,null).use { db ->
+            db.execSQL("CREATE TABLE workouts (id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, finished_at INTEGER, exercises TEXT NOT NULL)")
+            db.execSQL("CREATE TABLE sets (id INTEGER PRIMARY KEY, workout_id INTEGER NOT NULL, exercise TEXT NOT NULL CHECK(exercise IN ('BENCH','CURL')), weight REAL NOT NULL, reps INTEGER NOT NULL, kind TEXT NOT NULL, technique TEXT NOT NULL, rir INTEGER, rpe REAL, comment TEXT NOT NULL DEFAULT '', position INTEGER NOT NULL DEFAULT 0)")
+            db.execSQL("CREATE TABLE settings (key TEXT PRIMARY KEY,value TEXT NOT NULL)")
+            db.execSQL("INSERT INTO workouts VALUES (1,1000,2000,'BENCH')")
+            db.execSQL("INSERT INTO sets VALUES (10,1,'BENCH',80,8,'WORK','NORMAL',2,8,'kept',4)")
+            db.version=2
+        }
+        repository=GymRepository(GymDatabase(context))
+        assertEquals(3,GymDatabase(context).use {it.readableDatabase.version})
+        assertEquals(10L,repository.read().sets.single().id)
+        assertEquals("kept",repository.read().sets.single().comment)
+        val id=repository.start(listOf(Exercise.DEADLIFT))
+        repository.saveSet(Draft(exercise=Exercise.DEADLIFT,weight="140",reps="5").toSet(id))
+        assertEquals(setOf(Exercise.BENCH,Exercise.DEADLIFT),repository.read().sets.map {it.exercise}.toSet())
+        repository.reorder(1,Exercise.BENCH,listOf(10L))
+    }
     @Test fun firstDatabaseHasNoSeededWorkoutsAndArchivesDoNotEnterBenchView() {
-        repository.prepareBenchDiary()
+        repository.prepareDiary()
         assertTrue(repository.read().workouts.isEmpty())
         assertTrue(repository.read().sets.isEmpty())
         val id=repository.start(listOf(Exercise.CURL))
         repository.saveSet(Draft(exercise=Exercise.CURL).toSet(id))
         repository.saveDraft(Draft(exercise=Exercise.CURL,weight="35"))
-        repository.prepareBenchDiary()
+        repository.prepareDiary()
         assertNull(repository.read().active)
         assertTrue(repository.read().benchOnly().workouts.isEmpty())
         assertEquals(1,repository.backup().data.sets.size)
