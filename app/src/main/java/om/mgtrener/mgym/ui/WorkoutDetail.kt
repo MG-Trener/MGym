@@ -26,28 +26,80 @@ fun CopyWorkout(data: GymData,id:Long) {
     },contentPadding=PaddingValues(horizontal=8.dp), modifier=Modifier.heightIn(min=36.dp)) { Text(if(copied) "Скопировано" else "Копировать") }
 }
 @Composable
-fun WorkoutDetail(data: GymData,id:Long,isResult:Boolean=false,
-                  reorder: ((Long,Exercise,List<Long>)->Unit)?=null, enabled:Boolean=true) {
+fun WorkoutDetail(
+    data: GymData,
+    id: Long,
+    isResult: Boolean = false,
+    reorder: ((Long,Exercise,List<Long>)->Unit)? = null,
+    enabled: Boolean = true,
+    save: ((LiftSet)->Unit)? = null,
+    delete: ((LiftSet)->Unit)? = null
+) {
     val workout=data.workouts.firstOrNull { it.id==id } ?: return
     var exercise by rememberSaveable(id) { mutableStateOf(workout.exercises.first()) }
+    var editMode by rememberSaveable(id) { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<LiftSet?>(null) }
+    var removing by remember { mutableStateOf<LiftSet?>(null) }
     val sets=data.setsFor(id).filter { it.exercise==exercise }
+    val canEdit=save!=null && delete!=null
     Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(if(isResult) "ТРЕНИРОВКА ЗАВЕРШЕНА" else "Тренировка",style=MaterialTheme.typography.titleMedium)
                 Text(date(workout.startedAt),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            CopyWorkout(data,id)
+            Row(verticalAlignment=Alignment.CenterVertically) {
+                CopyWorkout(data,id)
+                if(canEdit) TextButton(
+                    onClick={
+                        editMode=!editMode
+                        if(!editMode) { editing=null; removing=null }
+                    },
+                    enabled=enabled,
+                    contentPadding=PaddingValues(horizontal=8.dp),
+                    modifier=Modifier.heightIn(min=36.dp)
+                ) { Text(if(editMode) "Готово" else "Редактировать") }
+            }
         }
         if(workout.exercises.size>1) CompactTabs(workout.exercises.map { it.short },workout.exercises.indexOf(exercise)) { exercise=workout.exercises[it] }
         else Text(exercise.title,style=MaterialTheme.typography.titleSmall)
         SummaryCard(sets)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
             Text("Подходы · ${sets.size}",style=MaterialTheme.typography.labelMedium)
-            Text("Удерживай ≡ и перемещай",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if(editMode) "Нажми на вес или повторы" else "Удерживай ≡ и перемещай",
+                style=MaterialTheme.typography.labelSmall,
+                color=MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
-        SetTable(sets,Modifier.weight(1f),enabled,
-            reorder=if(reorder!=null) { ids -> reorder(id,exercise,ids) } else null)
+        SetTable(
+            sets,
+            Modifier.weight(1f),
+            enabled,
+            reorder=if(reorder!=null) { ids -> reorder(id,exercise,ids) } else null,
+            edit=if(editMode && canEdit) { set -> editing=set } else null,
+            delete=if(editMode && canEdit && sets.size>1) { set -> removing=set } else null
+        )
+    }
+    editing?.let { set ->
+        EditSetDialog(set,{editing=null}) { updated ->
+            save?.invoke(updated)
+            editing=null
+        }
+    }
+    removing?.let { set ->
+        AlertDialog(
+            onDismissRequest={removing=null},
+            title={Text("Удалить подход?")},
+            text={Text("${number(set.weight)} кг × ${set.reps}")},
+            confirmButton={
+                TextButton(onClick={
+                    delete?.invoke(set)
+                    removing=null
+                }) {Text("Удалить")}
+            },
+            dismissButton={TextButton(onClick={removing=null}) {Text("Отмена")}}
+        )
     }
 }
 @Composable
