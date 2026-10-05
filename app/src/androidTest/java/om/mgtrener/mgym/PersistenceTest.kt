@@ -75,6 +75,9 @@ class PersistenceTest {
         edited = repository.read().setsFor(id)
         assertEquals(1,edited.size)
         assertThrows(IllegalArgumentException::class.java) { repository.deleteCompletedSet(edited.single()) }
+        repository.saveCompletedSet(Draft(weight="105",reps="3").toSet(id))
+        edited = repository.read().setsFor(id)
+        assertEquals(listOf(82.5,105.0),edited.map {it.weight})
         assertThrows(IllegalArgumentException::class.java) {
             val activeId=repository.start(listOf(Exercise.BENCH))
             repository.saveCompletedSet(Draft(weight="60",reps="10").toSet(activeId))
