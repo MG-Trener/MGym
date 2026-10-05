@@ -6,14 +6,14 @@ plugins {
 android {
     namespace = "om.mgtrener.mgym"
     compileSdk {
-        version = release(37)
+        version = release(36)
     }
 
     defaultConfig {
         applicationId = if (providers.gradleProperty("mgymUiTestInstall").orNull == "true")
             "om.mgtrener.mgym.uitest" else "om.mgtrener.mgym"
         minSdk = 30
-        targetSdk = 37
+        targetSdk = 36
         versionCode = 6
         versionName = "0.2.2"
 
