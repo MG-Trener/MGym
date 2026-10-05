@@ -5,6 +5,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -12,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import om.mgtrener.mgym.domain.*
 import om.mgtrener.mgym.services.WorkoutText
 
@@ -40,6 +45,7 @@ fun WorkoutDetail(
     var editMode by rememberSaveable(id) { mutableStateOf(false) }
     var editing by remember { mutableStateOf<LiftSet?>(null) }
     var removing by remember { mutableStateOf<LiftSet?>(null) }
+    var adding by remember { mutableStateOf(false) }
     val sets=data.setsFor(id).filter { it.exercise==exercise }
     val canEdit=save!=null && delete!=null
     Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(6.dp)) {
@@ -53,7 +59,7 @@ fun WorkoutDetail(
                 if(canEdit) TextButton(
                     onClick={
                         editMode=!editMode
-                        if(!editMode) { editing=null; removing=null }
+                        if(!editMode) { editing=null; removing=null; adding=false }
                     },
                     enabled=enabled,
                     contentPadding=PaddingValues(horizontal=8.dp),
@@ -78,7 +84,16 @@ fun WorkoutDetail(
             enabled,
             reorder=if(reorder!=null) { ids -> reorder(id,exercise,ids) } else null,
             edit=if(editMode && canEdit) { set -> editing=set } else null,
-            delete=if(editMode && canEdit && sets.size>1) { set -> removing=set } else null
+            delete=if(editMode && canEdit && sets.size>1) { set -> removing=set } else null,
+            footer=if(editMode && canEdit) {
+                {
+                    TextButton(
+                        onClick={adding=true},
+                        enabled=enabled,
+                        modifier=Modifier.fillMaxWidth().heightIn(min=44.dp)
+                    ) { Text("+ Добавить подход") }
+                }
+            } else null
         )
     }
     editing?.let { set ->
@@ -86,6 +101,14 @@ fun WorkoutDetail(
             save?.invoke(updated)
             editing=null
         }
+    }
+    if(adding) AddCompletedSetDialog(
+        workoutId=id,
+        exercise=exercise,
+        dismiss={adding=false}
+    ) { set ->
+        save?.invoke(set)
+        adding=false
     }
     removing?.let { set ->
         AlertDialog(
@@ -102,6 +125,45 @@ fun WorkoutDetail(
         )
     }
 }
+@Composable
+private fun AddCompletedSetDialog(
+    workoutId: Long,
+    exercise: Exercise,
+    dismiss: () -> Unit,
+    save: (LiftSet) -> Unit
+) {
+    var draft by remember(workoutId,exercise) {
+        mutableStateOf(Draft(exercise=exercise,weight="",reps="",kind=SetKind.WORK))
+    }
+    var error by remember { mutableStateOf<String?>(null) }
+    Dialog(onDismissRequest=dismiss,properties=DialogProperties(usePlatformDefaultWidth=false)) {
+        Surface(
+            Modifier.fillMaxWidth().padding(16.dp),
+            shape=RoundedCornerShape(16.dp),
+            color=MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                Modifier.padding(12.dp).heightIn(max=600.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement=Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Добавить подход",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(vertical=8.dp))
+                SetEditor(draft,true) { draft=it }
+                error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) {
+                    TextButton(onClick=dismiss) { Text("Отмена") }
+                    Button(
+                        onClick={
+                            try { save(draft.copy(kind=SetKind.WORK).toSet(workoutId)) }
+                            catch(e:IllegalArgumentException) { error=e.message }
+                        },
+                        shape=RoundedCornerShape(8.dp)
+                    ) { Text("Добавить") }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun CompactTabs(labels:List<String>,selected:Int,select:(Int)->Unit) {
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
