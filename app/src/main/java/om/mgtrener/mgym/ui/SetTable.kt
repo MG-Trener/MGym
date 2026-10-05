@@ -23,9 +23,14 @@ import om.mgtrener.mgym.ui.theme.Lime
 @Composable
 fun SetTable(sets: List<LiftSet>, modifier: Modifier = Modifier, enabled: Boolean = true,
              reorder: ((List<Long>) -> Unit)? = null, edit: ((LiftSet) -> Unit)? = null,
-             duplicate: ((LiftSet) -> Unit)? = null, delete: ((LiftSet) -> Unit)? = null) {
+             duplicate: ((LiftSet) -> Unit)? = null, delete: ((LiftSet) -> Unit)? = null, footer: (@Composable () -> Unit)? = null) {
     var ordered by remember(sets) { mutableStateOf(sets) }
     val state = rememberLazyListState()
+    var previousCount by remember {mutableIntStateOf(sets.size)}
+    LaunchedEffect(sets.size) {
+        if(footer != null && sets.size>previousCount) state.animateScrollToItem(sets.size)
+        previousCount=sets.size
+    }
     var dragging by remember { mutableStateOf<Long?>(null) }
     var center by remember { mutableFloatStateOf(0f) }
     val onReorder by rememberUpdatedState(reorder)
@@ -82,7 +87,14 @@ fun SetTable(sets: List<LiftSet>, modifier: Modifier = Modifier, enabled: Boolea
                                 })
                         }, contentAlignment=Alignment.Center) { Text("≡",color=MaterialTheme.colorScheme.onSurfaceVariant) }
                     Text("${index+1}",Modifier.width(24.dp), style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(Modifier.weight(1f).clickable { expanded=!expanded }.padding(vertical=6.dp), verticalAlignment=Alignment.CenterVertically) {
+                    if(edit != null) Row(Modifier.weight(1f).padding(vertical=3.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                        Surface(onClick={edit(s)},enabled=enabled,shape=MaterialTheme.shapes.small,modifier=Modifier.weight(1f),color=MaterialTheme.colorScheme.background) {
+                            Text(number(s.weight),Modifier.padding(10.dp),style=MaterialTheme.typography.titleSmall)
+                        }
+                        Surface(onClick={edit(s)},enabled=enabled,shape=MaterialTheme.shapes.small,modifier=Modifier.weight(1f),color=MaterialTheme.colorScheme.background) {
+                            Text(s.reps.toString(),Modifier.padding(10.dp),style=MaterialTheme.typography.titleSmall)
+                        }
+                    } else Row(Modifier.weight(1f).clickable { expanded=!expanded }.padding(vertical=6.dp), verticalAlignment=Alignment.CenterVertically) {
                         Text("${number(s.weight)} × ${s.reps}",Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
                         Text(buildList {
                             s.rir?.let { add("RIR $it") }; s.rpe?.let { add("RPE ${number(it)}") }
@@ -104,5 +116,6 @@ fun SetTable(sets: List<LiftSet>, modifier: Modifier = Modifier, enabled: Boolea
                 HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=0.22f))
             }
         }
+        if(footer != null) item(key="draft-row") {footer()}
     }
 }

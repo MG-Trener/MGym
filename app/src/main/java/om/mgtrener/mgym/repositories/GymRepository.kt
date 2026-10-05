@@ -55,7 +55,7 @@ class GymRepository(private val helper: GymDatabase) {
         val id = db.insertOrThrow("workouts", null, ContentValues().apply {
             put("started_at", System.currentTimeMillis()); put("exercises", exercises.distinct().joinToString(",") { it.name })
         })
-        saveDraft(Draft(exercise = exercises.first()))
+        saveDraft(Draft(exercise = exercises.first(), weight="", reps=""))
         id
     }
     private fun values(s: LiftSet) = ContentValues().apply {
@@ -77,6 +77,18 @@ class GymRepository(private val helper: GymDatabase) {
             db.insertOrThrow("sets", null, values(s).apply { put("position", next) })
         }
         else require(db.update("sets", values(s), "id=? AND workout_id=?", arrayOf(s.id.toString(),s.workoutId.toString())) == 1)
+    }
+    fun appendRow(set: LiftSet) = transaction {
+        saveSet(set)
+        saveDraft(Draft(exercise=set.exercise,weight="",reps=""))
+    }
+    fun finishWithRow(id:Long, pending:LiftSet?) = transaction {
+        if(pending != null) {
+            require(pending.workoutId==id && pending.id==0L)
+            saveSet(pending)
+        }
+        finish(id)
+        saveDraft(Draft(weight="",reps=""))
     }
     fun deleteSet(s: LiftSet) = transaction {
         requireActive(s.workoutId)

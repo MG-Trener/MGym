@@ -138,4 +138,22 @@ class PersistenceTest {
         val old=org.json.JSONObject(BackupCodec.encode(copy)).apply {remove("sounds")}
         assertTrue(BackupCodec.decode(old.toString()).sounds)
     }
+    @Test fun rowsResetAtomicallyAndFinishIncludesLastFilledRow() {
+        val id=repository.start(listOf(Exercise.BENCH))
+        assertEquals("",repository.draft().weight)
+        assertEquals("",repository.draft().reps)
+        val draft=Draft(weight="62,5",reps="5")
+        repository.saveDraft(draft)
+        repository.appendRow(draft.toSet(id))
+        assertEquals("",repository.draft().weight)
+        repository.close();repository=GymRepository(GymDatabase(context))
+        assertEquals(1,repository.read().sets.size)
+        assertEquals("",repository.draft().reps)
+        repository.finishWithRow(id,Draft(weight="80",reps="8").toSet(id))
+        assertEquals(2,repository.read().sets.size)
+        assertNull(repository.read().active)
+        assertEquals("",repository.draft().weight)
+        assertThrows(IllegalArgumentException::class.java) {repository.finishWithRow(id,null)}
+        assertEquals(2,repository.read().sets.size)
+    }
 }

@@ -76,14 +76,17 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
     fun add(onSuccess: () -> Unit) {
         val active = data.active ?: return
         val set = try { draft.copy(kind = SetKind.WORK).toSet(active.id) } catch(e: IllegalArgumentException) { message = e.message; return }
-        action(success = {feedback.play(sounds,haptics);onSuccess()}) { repository.saveSet(set) }
+        action(reloadDraft=true,success = {feedback.play(sounds,haptics);onSuccess()}) { repository.appendRow(set) }
     }
     fun reorder(workoutId: Long, exercise: Exercise, ids: List<Long>) = action(success={feedback.play(sounds,haptics)}) { repository.reorder(workoutId,exercise,ids) }
     fun save(set: LiftSet) = action { repository.saveSet(set) }
     fun remove(set: LiftSet) = action { repository.deleteSet(set) }
     fun finish() {
         val id = data.active?.id ?: return
-        action(success = { completedId = id; feedback.play(sounds,haptics,true) }) { repository.finish(id) }
+        val pending=if(draft.weight.isBlank() && draft.reps.isBlank()) null else try {
+            draft.copy(kind=SetKind.WORK).toSet(id)
+        } catch(e:IllegalArgumentException) {message=e.message;return}
+        action(reloadDraft=true,success = { completedId = id; feedback.play(sounds,haptics,true) }) { repository.finishWithRow(id,pending) }
     }
     fun closeResult() { completedId = null }
     fun dismissMessage() { message = null }

@@ -1,7 +1,5 @@
 package om.mgtrener.mgym.ui
 
-import androidx.compose.animation.animateContentSize
-import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,9 +15,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -38,16 +35,15 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun WorkoutScreen(model: GymViewModel, collapse: () -> Unit = {}) {
     val active = model.data.active ?: return
-    var justAdded by remember {mutableStateOf(false)}
-    LaunchedEffect(justAdded) {if(justAdded) {delay(800);justAdded=false}}
     val focus = LocalFocusManager.current
     var editing by remember { mutableStateOf<LiftSet?>(null) }
     var removing by remember { mutableStateOf<LiftSet?>(null) }
     var finish by remember { mutableStateOf(false) }
-    var showInput by rememberSaveable { mutableStateOf(true) }
     val draft = model.draft
-    val sets = model.data.setsFor(active.id).filter { it.exercise == draft.exercise }
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val sets = model.data.setsFor(active.id).filter { it.exercise == Exercise.BENCH }
+    val valid = runCatching {draft.toSet(active.id)}.isSuccess
+    val empty = draft.weight.isBlank() && draft.reps.isBlank()
+    Column(Modifier.fillMaxSize().imePadding(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = collapse, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(36.dp).semantics { contentDescription = "Свернуть тренировку" }) { Text("‹", fontSize = 28.sp) }
             Column(Modifier.weight(1f)) {
@@ -58,35 +54,37 @@ fun WorkoutScreen(model: GymViewModel, collapse: () -> Unit = {}) {
                 style = MaterialTheme.typography.labelLarge, color = Lime)
         }
         Text("Жим штанги лёжа",style=MaterialTheme.typography.titleMedium,color=Lime)
-        Panel {
-            Row(Modifier.fillMaxWidth().clickable { showInput = !showInput }, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(if(showInput) "НОВЫЙ ПОДХОД  −" else "НОВЫЙ ПОДХОД  +", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text((sets.size + 1).toString().padStart(2, '0'), style = MaterialTheme.typography.labelMedium, color = Lime)
-            }
-            if(showInput) {
-            SetEditor(draft, !model.busy, model::updateDraft)
-            Button(onClick = {
-                focus.clearFocus()
-                model.add { justAdded=true }
-            }, enabled = !model.busy, shape = RoundedCornerShape(9.dp),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp)) { Text(if(justAdded) "✓ Сохранено" else "Добавить подход") }
-            }
-        }
         SummaryCard(sets)
-        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Подходы", style = MaterialTheme.typography.titleMedium)
-            Text("Сохранено: ${sets.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+            Text("Подходы",style=MaterialTheme.typography.titleMedium)
+            Text("Сохранено: ${sets.size}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if(sets.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(),contentAlignment=Alignment.TopStart) {
-            Text("Запиши первый подход",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        } else SetTable(sets,Modifier.weight(1f),!model.busy,
-            reorder={model.reorder(active.id,draft.exercise,it)}, edit={editing=it},
-            duplicate={model.save(it.copy(id=0,kind=SetKind.WORK))},delete={removing=it})
-        OutlinedButton(onClick = { finish = true }, enabled = !model.busy && model.data.setsFor(active.id).isNotEmpty(),
+        Row(Modifier.padding(start=56.dp,end=36.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            Text("Вес, кг",Modifier.weight(1f),style=MaterialTheme.typography.labelSmall)
+            Text("Повторы",Modifier.weight(1f),style=MaterialTheme.typography.labelSmall)
+        }
+        SetTable(sets,Modifier.weight(1f),!model.busy,
+            reorder={model.reorder(active.id,Exercise.BENCH,it)},edit={editing=it},delete={removing=it},
+            footer={
+                Column(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                        Text("${sets.size+1}",Modifier.width(48.dp),textAlign=TextAlign.End,style=MaterialTheme.typography.bodyMedium,color=Lime)
+                        RowField(draft.weight,"Вес, кг",KeyboardType.Decimal,{if(it.length<=12) model.updateDraft(draft.copy(weight=it))},!model.busy,Modifier.weight(1f))
+                        RowField(draft.reps,"Повторы",KeyboardType.Number,{if(it.length<=3) model.updateDraft(draft.copy(reps=it))},!model.busy,Modifier.weight(1f))
+                        Spacer(Modifier.width(28.dp))
+                    }
+                    TextButton(onClick={focus.clearFocus();model.add {}},enabled=valid && !model.busy,
+                        modifier=Modifier.padding(start=48.dp).size(48.dp).semantics {contentDescription="Добавить строку"},contentPadding=PaddingValues(0.dp)) {
+                        Text("+",fontSize=28.sp)
+                    }
+                    if(!empty && !valid) Text("Укажи вес больше 0 и повторы от 1 до 200",Modifier.padding(start=56.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            })
+        OutlinedButton(onClick = { finish = true }, enabled = !model.busy && (valid || (empty && sets.isNotEmpty())),
             shape = RoundedCornerShape(9.dp), modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp)) { Text("Завершить тренировку") }
     }
     if(finish) AlertDialog(onDismissRequest = { finish = false }, title = { Text("Завершить тренировку?") },
-        text = { Text("Сохранённые подходы попадут в историю и статистику. Незаконченный ввод не считается подходом.") },
+        text = { Text("Последняя заполненная строка тоже сохранится. Пустая строка не добавляется в историю.") },
         confirmButton = { TextButton(onClick = { finish = false; model.finish() }) { Text("Завершить") } },
         dismissButton = { TextButton(onClick = { finish = false }) { Text("Продолжить") } })
     removing?.let { s ->
@@ -96,6 +94,16 @@ fun WorkoutScreen(model: GymViewModel, collapse: () -> Unit = {}) {
             dismissButton = { TextButton(onClick = { removing = null }) { Text("Отмена") } })
     }
     editing?.let { s -> EditSetDialog(s, { editing = null }) { updated -> model.save(updated); editing = null } }
+}
+
+@Composable
+private fun RowField(value:String,label:String,keyboard:KeyboardType,change:(String)->Unit,enabled:Boolean,modifier:Modifier) {
+    BasicTextField(value,onValueChange=change,enabled=enabled,singleLine=true,
+        keyboardOptions=KeyboardOptions(keyboardType=keyboard),cursorBrush=SolidColor(Lime),
+        textStyle=MaterialTheme.typography.titleMedium.copy(color=MaterialTheme.colorScheme.onSurface),
+        modifier=modifier.heightIn(min=44.dp).border(1.dp,MaterialTheme.colorScheme.outline,RoundedCornerShape(7.dp))
+            .padding(horizontal=10.dp,vertical=10.dp).semantics {contentDescription=label},
+        decorationBox={input->Box {if(value.isEmpty()) Text("—",Modifier.clearAndSetSemantics {},color=MaterialTheme.colorScheme.onSurfaceVariant);input()}})
 }
 
 @Composable
