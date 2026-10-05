@@ -54,8 +54,10 @@ fun WorkoutDetail(
                 Text(if(isResult) "ТРЕНИРОВКА ЗАВЕРШЕНА" else "Тренировка",style=MaterialTheme.typography.titleMedium)
                 Text(date(workout.startedAt),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Row(verticalAlignment=Alignment.CenterVertically) {
-                CopyWorkout(data,id)
+            CopyWorkout(data,id)
+        }
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Text(exercise.title,Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
                 if(canEdit) TextButton(
                     onClick={
                         editMode=!editMode
@@ -65,10 +67,8 @@ fun WorkoutDetail(
                     contentPadding=PaddingValues(horizontal=8.dp),
                     modifier=Modifier.heightIn(min=36.dp)
                 ) { Text(if(editMode) "Готово" else "Редактировать") }
-            }
         }
         if(workout.exercises.size>1) CompactTabs(workout.exercises.map { it.short },workout.exercises.indexOf(exercise)) { exercise=workout.exercises[it] }
-        else Text(exercise.title,style=MaterialTheme.typography.titleSmall)
         SummaryCard(sets)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
             Text("Подходы · ${sets.size}",style=MaterialTheme.typography.labelMedium)

@@ -82,6 +82,61 @@ class WorkoutUiTest {
             compose.onNodeWithText("ИТОГО ЗА ПЕРИОД · 7 тренировок").assertIsDisplayed()
         }
     }
+    @Test fun completedEditsPersistAndCalendarCanEdit() {
+        check(context.packageName.endsWith(".uitest"))
+        context.deleteDatabase("mgym.db")
+        val now=System.currentTimeMillis()
+        GymRepository(GymDatabase(context)).let { r ->
+            r.replace(Backup(GymData(listOf(Workout(1,now,now+60000,listOf(Exercise.BENCH))),
+                listOf(LiftSet(1,1,Exercise.BENCH,80.0,8),LiftSet(2,1,Exercise.BENCH,100.0,5))),Draft(weight="",reps=""),false))
+            r.close()
+        }
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            compose.waitUntil(15000) {compose.onAllNodesWithText("1140 кг").fetchSemanticsNodes().isNotEmpty()}
+            compose.onNodeWithText("1140 кг").performClick()
+            compose.onNodeWithText("Редактировать").performClick()
+            compose.onNodeWithText("80").performClick()
+            compose.onNodeWithContentDescription("Вес, кг").performTextReplacement("82,5")
+            compose.onNodeWithContentDescription("Повторы").performTextReplacement("7")
+            compose.onNodeWithText("Сохранить").performClick()
+            compose.waitUntil(10000) {read().setsFor(1).first().weight==82.5}
+            compose.onNodeWithText("+ Добавить подход").performClick()
+            compose.onNodeWithContentDescription("Вес, кг").assertTextEquals("")
+            compose.onNodeWithContentDescription("Вес, кг").performTextReplacement("105")
+            compose.onNodeWithContentDescription("Повторы").performTextReplacement("3")
+            compose.onNodeWithText("Добавить",useUnmergedTree=true).performClick()
+            compose.waitUntil(10000) {read().setsFor(1).size==3}
+            compose.onNodeWithContentDescription("Действия с подходом 2").performClick()
+            compose.onNodeWithText("Удалить").performClick()
+            compose.onNodeWithText("Отмена").performClick()
+            assertEquals(3,read().setsFor(1).size)
+            compose.onNodeWithContentDescription("Действия с подходом 2").performClick()
+            compose.onNodeWithText("Удалить").performClick()
+            compose.onNodeWithText("Удалить",useUnmergedTree=true).performClick()
+            compose.waitUntil(10000) {read().setsFor(1).size==2}
+            assertEquals(listOf(82.5,105.0),read().setsFor(1).map {it.weight})
+            capture("completed-edit")
+            compose.onNodeWithText("Готово").performClick()
+            compose.onNodeWithText("Копировать").performClick()
+            compose.runOnIdle {
+                val clipboard=context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                assertEquals(WorkoutText.format(read(),1),clipboard.primaryClip!!.getItemAt(0).text.toString())
+            }
+            scenario.recreate()
+            compose.waitUntil(10000) {compose.onAllNodesWithText("82,5 × 7").fetchSemanticsNodes().isNotEmpty() || compose.onAllNodesWithText("82.5 × 7").fetchSemanticsNodes().isNotEmpty()}
+            compose.onNodeWithText("← Назад").performClick()
+            compose.onNodeWithText("Календарь").performClick()
+            compose.onNodeWithContentDescription("Месяц ${LocalDate.now().monthValue}, ${LocalDate.now().year}").performClick()
+            compose.onNodeWithContentDescription("Дата ${LocalDate.now()}, тренировок 1").performClick()
+            compose.onNodeWithText("Редактировать").performClick()
+            compose.onNodeWithText("105").performClick()
+            compose.onNodeWithContentDescription("Повторы").performTextReplacement("4")
+            compose.onNodeWithText("Сохранить").performClick()
+            compose.waitUntil(10000) {read().setsFor(1).last().reps==4}
+            capture("completed-calendar-edit",true)
+            assertEquals(now+60000,read().completed.single().finishedAt)
+        }
+    }
     @Test fun emptyRowsValidatePersistAndFinishWithoutExtraPlus() {
         check(context.packageName.endsWith(".uitest"))
         context.deleteDatabase("mgym.db")
