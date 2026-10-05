@@ -185,7 +185,7 @@ private fun StepButton(text: String, description: String, enabled: Boolean, clic
 }
 
 @Composable
-private fun EditSetDialog(set: LiftSet, dismiss: () -> Unit, save: (LiftSet) -> Unit) {
+fun EditSetDialog(set: LiftSet, dismiss: () -> Unit, save: (LiftSet) -> Unit) {
     var draft by remember(set.id) { mutableStateOf(Draft(set.exercise, number(set.weight), set.reps.toString(),
         set.kind, set.technique, set.rir?.toString().orEmpty(), set.rpe?.toString().orEmpty(), set.comment)) }
     var error by remember { mutableStateOf<String?>(null) }
