@@ -81,6 +81,8 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
     fun reorder(workoutId: Long, exercise: Exercise, ids: List<Long>) = action(success={feedback.play(sounds,haptics)}) { repository.reorder(workoutId,exercise,ids) }
     fun save(set: LiftSet) = action { repository.saveSet(set) }
     fun remove(set: LiftSet) = action { repository.deleteSet(set) }
+    fun saveCompleted(set: LiftSet) = action { repository.saveCompletedSet(set) }
+    fun removeCompleted(set: LiftSet) = action { repository.deleteCompletedSet(set) }
     fun finish() {
         val id = data.active?.id ?: return
         val pending=if(draft.weight.isBlank() && draft.reps.isBlank()) null else try {

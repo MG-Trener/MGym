@@ -45,11 +45,11 @@ fun GymApp(model: GymViewModel) {
                 when {
                     result != null -> {
                         TextButton(onClick = { model.closeResult() }) { Text("← Сегодня") }
-                        WorkoutDetail(model.data, result, true, model::reorder, !model.busy)
+                        WorkoutDetail(model.data, result, true, model::reorder, !model.busy, model::saveCompleted, model::removeCompleted)
                     }
                     selectedWorkout != null -> {
                         TextButton(onClick = { selectedWorkout = null }) { Text("← Назад") }
-                        WorkoutDetail(model.data, selectedWorkout!!, false, model::reorder, !model.busy)
+                        WorkoutDetail(model.data, selectedWorkout!!, false, model::reorder, !model.busy, model::saveCompleted, model::removeCompleted)
                     }
                     workoutOpen && active != null -> {
 

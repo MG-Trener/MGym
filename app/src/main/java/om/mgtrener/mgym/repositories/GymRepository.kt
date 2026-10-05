@@ -78,6 +78,34 @@ class GymRepository(private val helper: GymDatabase) {
         }
         else require(db.update("sets", values(s), "id=? AND workout_id=?", arrayOf(s.id.toString(),s.workoutId.toString())) == 1)
     }
+    private fun requireCompleted(id: Long, exercise: Exercise? = null) {
+        db.rawQuery("SELECT exercises FROM workouts WHERE id=? AND finished_at IS NOT NULL", arrayOf(id.toString())).use {
+            require(it.moveToFirst()) { "Завершённая тренировка не найдена" }
+            require(exercise == null || exercise.name in it.getString(0).split(",")) { "Упражнение не входит в тренировку" }
+        }
+    }
+    fun saveCompletedSet(s: LiftSet) = transaction {
+        requireCompleted(s.workoutId, s.exercise)
+        Draft(s.exercise, s.weight.toString(), s.reps.toString(), s.kind, s.technique, s.rir?.toString().orEmpty(), s.rpe?.toString().orEmpty(), s.comment).toSet(s.workoutId)
+        if(s.id == 0L) {
+            val next = db.rawQuery("SELECT COALESCE(MAX(position),-1)+1 FROM sets WHERE workout_id=? AND exercise=?", arrayOf(s.workoutId.toString(),s.exercise.name)).use { it.moveToFirst(); it.getLong(0) }
+            db.insertOrThrow("sets", null, values(s).apply { put("position", next) })
+        } else {
+            require(db.update("sets", values(s), "id=? AND workout_id=?", arrayOf(s.id.toString(),s.workoutId.toString())) == 1) {
+                "Подход не найден"
+            }
+        }
+    }
+    fun deleteCompletedSet(s: LiftSet) = transaction {
+        requireCompleted(s.workoutId, s.exercise)
+        val count = db.rawQuery("SELECT COUNT(*) FROM sets WHERE workout_id=? AND exercise=?", arrayOf(s.workoutId.toString(),s.exercise.name)).use {
+            it.moveToFirst(); it.getInt(0)
+        }
+        require(count > 1) { "Для упражнения должен остаться хотя бы один подход" }
+        require(db.delete("sets", "id=? AND workout_id=?", arrayOf(s.id.toString(),s.workoutId.toString())) == 1) {
+            "Подход не найден"
+        }
+    }
     fun appendRow(set: LiftSet) = transaction {
         saveSet(set)
         saveDraft(Draft(exercise=set.exercise,weight="",reps=""))
