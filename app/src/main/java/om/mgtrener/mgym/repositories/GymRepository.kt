@@ -98,10 +98,10 @@ class GymRepository(private val helper: GymDatabase) {
     }
     fun deleteCompletedSet(s: LiftSet) = transaction {
         requireCompleted(s.workoutId, s.exercise)
-        val count = db.rawQuery("SELECT COUNT(*) FROM sets WHERE workout_id=?", arrayOf(s.workoutId.toString())).use {
+        val count = db.rawQuery("SELECT COUNT(*) FROM sets WHERE workout_id=? AND exercise=?", arrayOf(s.workoutId.toString(),s.exercise.name)).use {
             it.moveToFirst(); it.getInt(0)
         }
-        require(count > 1) { "В тренировке должен остаться хотя бы один подход" }
+        require(count > 1) { "Для упражнения должен остаться хотя бы один подход" }
         require(db.delete("sets", "id=? AND workout_id=?", arrayOf(s.id.toString(),s.workoutId.toString())) == 1) {
             "Подход не найден"
         }
