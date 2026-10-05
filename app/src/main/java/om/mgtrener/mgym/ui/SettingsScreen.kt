@@ -63,6 +63,17 @@ fun SettingsScreen(model: GymViewModel) {
         Text("О MGym", style = MaterialTheme.typography.titleLarge)
         Text("Тренировочные данные хранятся локально на устройстве.")
         Text("Без регистрации и рекламы. История не отправляется в интернет. Расчётный e1RM — статистическая оценка, а не проверенный максимум.")
+        HorizontalDivider()
+        Text("Разработчик", style = MaterialTheme.typography.titleMedium)
+        Text("Михаил Гаврилычев", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedButton(
+            onClick = {
+                val url = "https://wa.me/77018709384".toUri()
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url)) }
+                    .onFailure { model.notify("Не удалось открыть WhatsApp") }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Написать в WhatsApp") }
     }
     TextButton(onClick = { delete = true }, enabled = !model.busy) { Text("Удалить все данные", color = MaterialTheme.colorScheme.error) }
     if(delete) AlertDialog(onDismissRequest = { delete = false }, title = { Text("Удалить весь дневник?") },
