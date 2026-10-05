@@ -117,7 +117,7 @@ fun CalendarScreen(model: GymViewModel) {
                     if(workout==null) Text("В этот день тренировок нет",style=MaterialTheme.typography.bodyMedium)
                     else {
                         if(sessions.size>1) CompactTabs(sessions.map {date(it.startedAt).substringAfter("· ")},selected) {selected=it}
-                        Box(Modifier.weight(1f)) {WorkoutDetail(data,workout.id,reorder=model::reorder,enabled=!model.busy)}
+                        Box(Modifier.weight(1f)) {WorkoutDetail(data,workout.id,reorder=model::reorder,enabled=!model.busy,save=model::saveCompleted,delete=model::removeCompleted)}
                     }
                 }
             }
