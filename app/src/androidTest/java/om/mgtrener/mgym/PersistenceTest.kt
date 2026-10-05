@@ -60,6 +60,26 @@ class PersistenceTest {
         repository.saveSet(Draft().toSet(id)); repository.finish(id)
         assertThrows(IllegalArgumentException::class.java) { repository.saveSet(Draft().toSet(id)) }
     }
+    @Test fun completedWorkoutCanBeEditedExplicitly() {
+        val id = repository.start(listOf(Exercise.BENCH))
+        repository.saveSet(Draft(weight="80",reps="8").toSet(id))
+        repository.saveSet(Draft(weight="100",reps="5").toSet(id))
+        repository.finish(id)
+        val original = repository.read().setsFor(id)
+        repository.saveCompletedSet(original.first().copy(weight=82.5,reps=7,comment="исправлено"))
+        var edited = repository.read().setsFor(id)
+        assertEquals(82.5,edited.first().weight,0.0)
+        assertEquals(7,edited.first().reps)
+        assertEquals("исправлено",edited.first().comment)
+        repository.deleteCompletedSet(edited.last())
+        edited = repository.read().setsFor(id)
+        assertEquals(1,edited.size)
+        assertThrows(IllegalArgumentException::class.java) { repository.deleteCompletedSet(edited.single()) }
+        assertThrows(IllegalArgumentException::class.java) {
+            val activeId=repository.start(listOf(Exercise.BENCH))
+            repository.saveCompletedSet(Draft(weight="60",reps="10").toSet(activeId))
+        }
+    }
     @Test fun importRejectsFractionalAndOverflowingRepetitions() {
         val id = repository.start(listOf(Exercise.BENCH))
         repository.saveSet(Draft().toSet(id))
