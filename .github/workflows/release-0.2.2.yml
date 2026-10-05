@@ -1,0 +1,126 @@
+name: Release MGym 0.2.2
+
+on:
+  push:
+    branches: [ "release/0.2.2" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MGYM_KEYSTORE_BASE64: ${{ secrets.MGYM_KEYSTORE_BASE64 }}
+      MGYM_KEYSTORE_PASSWORD: ${{ secrets.MGYM_KEYSTORE_PASSWORD }}
+      MGYM_KEY_ALIAS: ${{ secrets.MGYM_KEY_ALIAS }}
+      MGYM_KEY_PASSWORD: ${{ secrets.MGYM_KEY_PASSWORD }}
+      MGYM_DEBUG_KEYSTORE_BASE64: ${{ secrets.MGYM_DEBUG_KEYSTORE_BASE64 }}
+      MGYM_DEBUG_KEYSTORE_PASSWORD: ${{ secrets.MGYM_DEBUG_KEYSTORE_PASSWORD }}
+      MGYM_DEBUG_KEY_ALIAS: ${{ secrets.MGYM_DEBUG_KEY_ALIAS }}
+      MGYM_DEBUG_KEY_PASSWORD: ${{ secrets.MGYM_DEBUG_KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android SDK 36
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Make Gradle executable
+        run: chmod +x gradlew
+
+      - name: Unit tests and lint
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug
+
+      - name: Build unsigned release APK
+        run: ./gradlew --no-daemon :app:assembleRelease
+
+      - name: Detect MGym signing key
+        id: signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${MGYM_KEYSTORE_BASE64}" && -n "${MGYM_KEYSTORE_PASSWORD}" && -n "${MGYM_KEY_ALIAS}" && -n "${MGYM_KEY_PASSWORD}" ]]; then
+            echo "mode=release" >> "$GITHUB_OUTPUT"
+            echo "MGym release signing key is configured."
+          elif [[ -n "${MGYM_DEBUG_KEYSTORE_BASE64}" && -n "${MGYM_DEBUG_KEYSTORE_PASSWORD}" && -n "${MGYM_DEBUG_KEY_ALIAS}" && -n "${MGYM_DEBUG_KEY_PASSWORD}" ]]; then
+            echo "mode=debug" >> "$GITHUB_OUTPUT"
+            echo "MGym legacy debug signing key is configured."
+          else
+            echo "mode=missing" >> "$GITHUB_OUTPUT"
+            echo "::error::MGym signing key is not configured in GitHub Actions secrets."
+          fi
+
+      - name: Sign APK with MGym key
+        if: steps.signing.outputs.mode != 'missing'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          if [[ "${{ steps.signing.outputs.mode }}" == "release" ]]; then
+            printf '%s' "$MGYM_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mgym.keystore"
+            KS_PASS="$MGYM_KEYSTORE_PASSWORD"
+            KEY_ALIAS="$MGYM_KEY_ALIAS"
+            KEY_PASS="$MGYM_KEY_PASSWORD"
+          else
+            printf '%s' "$MGYM_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mgym.keystore"
+            KS_PASS="$MGYM_DEBUG_KEYSTORE_PASSWORD"
+            KEY_ALIAS="$MGYM_DEBUG_KEY_ALIAS"
+            KEY_PASS="$MGYM_DEBUG_KEY_PASSWORD"
+          fi
+          UNSIGNED="$(find app/build/outputs/apk/release -maxdepth 1 -name '*unsigned*.apk' -print -quit)"
+          test -n "$UNSIGNED"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign             --ks "$RUNNER_TEMP/mgym.keystore"             --ks-pass "pass:$KS_PASS"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASS"             --out dist/MGym-0.2.2.apk             "$UNSIGNED"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/MGym-0.2.2.apk
+          (cd dist && sha256sum MGym-0.2.2.apk > SHA256SUMS-0.2.2.txt)
+
+      - name: Upload unsigned build for diagnostics
+        if: steps.signing.outputs.mode == 'missing'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MGym-0.2.2-unsigned
+          path: app/build/outputs/apk/release/
+          retention-days: 7
+
+      - name: Stop when signing key is missing
+        if: steps.signing.outputs.mode == 'missing'
+        run: exit 1
+
+      - name: Write release notes
+        if: steps.signing.outputs.mode != 'missing'
+        run: |
+          cat > dist/RELEASE_NOTES.md <<'EOF'
+          # MGym 0.2.2 — редактирование истории
+
+          - Завершённые тренировки теперь можно редактировать.
+          - Можно исправлять вес, повторы, RIR/RPE и комментарий.
+          - Можно добавлять пропущенные и удалять ошибочные подходы.
+          - Редактирование доступно из истории и календаря.
+          - В настройках добавлена связь с разработчиком Михаилом Гаврилычевым через WhatsApp.
+
+          APK для Android 11+.
+          EOF
+
+      - name: Publish GitHub Release
+        if: steps.signing.outputs.mode != 'missing'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v0.2.2             dist/MGym-0.2.2.apk             dist/SHA256SUMS-0.2.2.txt             --target "$GITHUB_SHA"             --title "MGym 0.2.2 — редактирование истории"             --notes-file dist/RELEASE_NOTES.md
