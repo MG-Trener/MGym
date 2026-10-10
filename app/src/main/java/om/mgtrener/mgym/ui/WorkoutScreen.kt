@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -31,6 +32,7 @@ import om.mgtrener.mgym.ui.theme.Lime
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
 
 @Composable
 fun WorkoutScreen(model: GymViewModel, collapse: () -> Unit = {}) {
@@ -44,6 +46,14 @@ fun WorkoutScreen(model: GymViewModel, collapse: () -> Unit = {}) {
     val sets = model.data.setsFor(active.id).filter { it.exercise == exercise }
     val valid = runCatching {draft.toSet(active.id)}.isSuccess
     val empty = draft.weight.isBlank() && draft.reps.isBlank()
+    var timerNow by remember(active.id) { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(active.id, model.restTimer.startedAtMs) {
+        while (model.restTimer.running) {
+            timerNow = System.currentTimeMillis()
+            delay(250)
+        }
+    }
+    val timerDisplay = model.restTimer.display(timerNow)
     Column(Modifier.fillMaxSize().imePadding(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = collapse, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(36.dp).semantics { contentDescription = "Свернуть тренировку" }) { Text("‹", fontSize = 28.sp) }
@@ -51,8 +61,27 @@ fun WorkoutScreen(model: GymViewModel, collapse: () -> Unit = {}) {
                 Text("В работе", style = MaterialTheme.typography.titleLarge)
                 Text("MGYM / ${exercise.short.uppercase()}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(Instant.ofEpochMilli(active.startedAt).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm")),
-                style = MaterialTheme.typography.labelLarge, color = Lime)
+            Column(horizontalAlignment=Alignment.End) {
+                Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Text(Instant.ofEpochMilli(active.startedAt).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm")),
+                        style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(timerDisplay,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold,color=Lime,
+                        modifier=Modifier.semantics {contentDescription="Таймер отдыха";stateDescription=timerDisplay})
+                }
+                Row(horizontalArrangement=Arrangement.spacedBy(2.dp)) {
+                    TextButton(onClick={
+                        if(model.restTimer.running) model.pauseRestTimer() else model.startRestTimer()
+                        timerNow=System.currentTimeMillis()
+                    },contentPadding=PaddingValues(horizontal=4.dp),modifier=Modifier.heightIn(min=32.dp)
+                        .semantics {contentDescription=if(model.restTimer.running) "Пауза таймера" else "Запустить таймер"}) {
+                        Text(if(model.restTimer.running) "Пауза" else "Старт",style=MaterialTheme.typography.labelMedium)
+                    }
+                    TextButton(onClick={model::resetRestTimer},contentPadding=PaddingValues(horizontal=4.dp),
+                        modifier=Modifier.heightIn(min=32.dp).semantics {contentDescription="Сбросить таймер"}) {
+                        Text("Сброс",style=MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
         }
         Text(exercise.title,style=MaterialTheme.typography.titleMedium,color=Lime)
         SummaryCard(sets)

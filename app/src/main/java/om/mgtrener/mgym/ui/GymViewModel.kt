@@ -26,6 +26,8 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
     var message by mutableStateOf<String?>(null); private set
     var preview by mutableStateOf<Backup?>(null); private set
     private val feedback=InteractionFeedback(app)
+    private val restTimerStore=RestTimerStore(app)
+    var restTimer by mutableStateOf(RestTimerState()); private set
     private val updateWorker=Executors.newSingleThreadExecutor()
     var checkingUpdate by mutableStateOf(false); private set
     var update by mutableStateOf<UpdateInfo?>(null); private set
@@ -41,7 +43,13 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
                 val restored = repository.draft()
                 val vibration = repository.setting("haptics") != "false"
                 val sound = repository.setting("sounds") != "false"
-                main.post { data = loaded; draft = restored; haptics = vibration; sounds = sound; ready = true }
+                main.post {
+                    data = loaded; draft = restored; haptics = vibration; sounds = sound
+                    restTimer = loaded.active?.let { restTimerStore.load(it.id) } ?: run {
+                        restTimerStore.clear(); RestTimerState()
+                    }
+                    ready = true
+                }
             } catch(e: Exception) { main.post { message = "Не удалось открыть данные: ${e.message}" } }
         }
     }
@@ -57,6 +65,11 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
                 val sound = repository.setting("sounds") != "false"
                 main.post {
                     data = loaded; restored?.let { draft = it }; haptics = vibration; sounds = sound
+                    if (loaded.active?.id != restTimer.workoutId) {
+                        restTimer = loaded.active?.let { restTimerStore.load(it.id) } ?: run {
+                            restTimerStore.clear(); RestTimerState()
+                        }
+                    }
                     busy = false; success?.invoke()
                 }
             } catch(e: Exception) {
@@ -91,6 +104,9 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
         action(reloadDraft=true,success = { completedId = id; feedback.play(sounds,haptics,true) }) { repository.finishWithRow(id,pending) }
     }
     fun closeResult() { completedId = null }
+    fun startRestTimer() { data.active?.let { restTimer = restTimerStore.start(it.id) } }
+    fun pauseRestTimer() { data.active?.let { restTimer = restTimerStore.pause(it.id) } }
+    fun resetRestTimer() { data.active?.let { restTimer = restTimerStore.reset(it.id) } }
     fun dismissMessage() { message = null }
     fun notify(text: String) { message = text }
     fun toggleHaptics(value: Boolean) = action { repository.setSetting("haptics",value.toString()) }

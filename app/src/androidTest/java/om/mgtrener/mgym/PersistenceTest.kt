@@ -6,6 +6,7 @@ import om.mgtrener.mgym.database.GymDatabase
 import om.mgtrener.mgym.domain.*
 import om.mgtrener.mgym.repositories.GymRepository
 import om.mgtrener.mgym.services.BackupCodec
+import om.mgtrener.mgym.services.RestTimerStore
 import org.junit.*
 import org.junit.Assert.*
 import org.junit.runner.RunWith
@@ -20,6 +21,26 @@ class PersistenceTest {
         repository = GymRepository(GymDatabase(context))
     }
     @After fun cleanup() { if (::repository.isInitialized) { repository.close(); context.deleteDatabase("mgym.db") } }
+    @Test fun restTimerStartsPausesRestoresAndResetsPerWorkout() {
+        var now = 1_000_000L
+        val timer = RestTimerStore(context) { now }
+        timer.clear()
+        assertEquals("00:00",timer.load(1).display(now))
+        timer.start(1)
+        now += 65_000
+        assertEquals("01:05",timer.load(1).display(now))
+        timer.pause(1)
+        now += 10_000
+        assertEquals("01:05",RestTimerStore(context) { now }.load(1).display(now))
+        timer.start(1)
+        now += 3_000
+        assertEquals("01:08",timer.load(1).display(now))
+        timer.reset(1)
+        assertEquals("00:00",timer.load(1).display(now))
+        timer.start(1)
+        assertEquals("00:00",timer.load(2).display(now))
+        timer.clear()
+    }
     @Test fun reopenRestoresDraftAndSingleActiveWorkout() {
         val id = repository.start(listOf(Exercise.BENCH,Exercise.CURL))
         val draft = Draft(exercise=Exercise.CURL,weight="42,5",reps="8",rir="2")
