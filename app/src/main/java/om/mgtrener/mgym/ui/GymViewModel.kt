@@ -50,7 +50,7 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     ready = true
                 }
-            } catch(e: Exception) { main.post { message = "Не удалось открыть данные: ${e.message}" } }
+            } catch(e: Exception) { main.post { message = "�� 㤠���� ������ �����: ${e.message}" } }
         }
     }
     private fun action(reloadDraft: Boolean = false, success: (() -> Unit)? = null, block: () -> Unit) {
@@ -73,7 +73,7 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
                     busy = false; success?.invoke()
                 }
             } catch(e: Exception) {
-                main.post { busy = false; message = e.message ?: "Не удалось сохранить данные" }
+                main.post { busy = false; message = e.message ?: "�� 㤠���� ��࠭��� �����" }
             }
         }
     }
@@ -82,7 +82,7 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
         draft = value
         worker.execute {
             try { repository.saveDraft(value) }
-            catch(e: Exception) { main.post { message = "Ввод не сохранён: ${e.message}" } }
+            catch(e: Exception) { main.post { message = "���� �� ��࠭�: ${e.message}" } }
         }
     }
     fun start(exercises: List<Exercise>) = action(reloadDraft = true) { repository.start(exercises) }
@@ -111,11 +111,14 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
     fun notify(text: String) { message = text }
     fun toggleHaptics(value: Boolean) = action { repository.setSetting("haptics",value.toString()) }
     fun toggleSounds(value: Boolean) = action { repository.setSetting("sounds",value.toString()) }
-    fun clear() = action(reloadDraft = true) { repository.clear() }
-    fun export(uri: Uri, csv: Boolean) = action(success = { message = "Файл сохранён" }) {
+    fun clear() = action(reloadDraft = true, success = {
+        getApplication<Application>().getSharedPreferences("bench150-progress-v1", Application.MODE_PRIVATE)
+            .edit().clear().apply()
+    }) { repository.clear() }
+    fun export(uri: Uri, csv: Boolean) = action(success = { message = "���� ��࠭�" }) {
         val text = if(csv) BackupCodec.csv(repository.read().trainingDiary()) else BackupCodec.encode(repository.backup())
         val resolver = getApplication<Application>().contentResolver
-        requireNotNull(resolver.openOutputStream(uri, "wt")) { "Не удалось открыть файл" }.bufferedWriter(Charsets.UTF_8).use { it.write(text) }
+        requireNotNull(resolver.openOutputStream(uri, "wt")) { "�� 㤠���� ������ 䠩�" }.bufferedWriter(Charsets.UTF_8).use { it.write(text) }
     }
     fun inspect(uri: Uri) = action {
         val resolver = getApplication<Application>().contentResolver
@@ -125,26 +128,26 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
             while (true) {
                 val count = input.read(buffer)
                 if (count < 0) break
-                require(output.size() + count <= BackupCodec.MAX_BYTES) { "Файл больше 10 МБ" }
+                require(output.size() + count <= BackupCodec.MAX_BYTES) { "���� ����� 10 ��" }
                 output.write(buffer, 0, count)
             }
             output.toByteArray()
         }
-        require(bytes.size <= BackupCodec.MAX_BYTES) { "Файл больше 10 МБ" }
+        require(bytes.size <= BackupCodec.MAX_BYTES) { "���� ����� 10 ��" }
         val backup = BackupCodec.decode(bytes.toString(Charsets.UTF_8))
         main.post { preview = backup }
     }
     fun cancelImport() { preview = null }
     fun importBackup() {
         val backup = preview ?: return
-        action(reloadDraft = true, success = { preview = null; message = "Резервная копия восстановлена" }) { repository.replace(backup); repository.prepareDiary() }
+        action(reloadDraft = true, success = { preview = null; message = "����ࢭ�� ����� ����⠭������" }) { repository.replace(backup); repository.prepareDiary() }
     }
     fun checkUpdate() {
         if(checkingUpdate) return
         checkingUpdate=true; update=null
         updateWorker.execute {
             val result=try { GitHubUpdateProvider(BuildConfig.VERSION_NAME).check() }
-            catch(e:Exception) {UpdateInfo(null,"Не удалось проверить обновление. Проверь интернет и повтори. ${e.message.orEmpty()}")}
+            catch(e:Exception) {UpdateInfo(null,"�� 㤠���� �஢���� ����������. �஢��� ���୥� � �����. ${e.message.orEmpty()}")}
             main.post {update=result;checkingUpdate=false}
         }
     }
@@ -155,3 +158,4 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
         feedback.close()
     }
 }
+
