@@ -16,7 +16,7 @@ import om.mgtrener.mgym.achievements.Achievements
 import om.mgtrener.mgym.ui.theme.Lime
 
 @Composable
-fun TodayScreen(model: GymViewModel, start: (Exercise) -> Unit, open: (Long) -> Unit) {
+fun TodayScreen(model: GymViewModel, start: (Exercise) -> Unit, open: (Long) -> Unit, openPlan: () -> Unit) {
     val data = model.data
     var selectedExercise by remember { mutableIntStateOf(0) }
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -24,6 +24,8 @@ fun TodayScreen(model: GymViewModel, start: (Exercise) -> Unit, open: (Long) -> 
         Text("MG / 01", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     Hero(data.completed.size)
+    OutlinedButton(onClick = openPlan, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+        shape = RoundedCornerShape(9.dp)) { Text("Путь к 150 кг  ↗", fontWeight = FontWeight.Bold) }
     val active = data.active
     if(active != null) {
         Button(onClick = { start(active.exercises.first()) }, enabled = !model.busy,
@@ -80,3 +82,4 @@ fun TodayScreen(model: GymViewModel, start: (Exercise) -> Unit, open: (Long) -> 
         }
     }
 }
+

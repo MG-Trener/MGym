@@ -111,7 +111,10 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
     fun notify(text: String) { message = text }
     fun toggleHaptics(value: Boolean) = action { repository.setSetting("haptics",value.toString()) }
     fun toggleSounds(value: Boolean) = action { repository.setSetting("sounds",value.toString()) }
-    fun clear() = action(reloadDraft = true) { repository.clear() }
+    fun clear() = action(reloadDraft = true, success = {
+        getApplication<Application>().getSharedPreferences("bench150-progress-v1", Application.MODE_PRIVATE)
+            .edit().clear().apply()
+    }) { repository.clear() }
     fun export(uri: Uri, csv: Boolean) = action(success = { message = "Файл сохранён" }) {
         val text = if(csv) BackupCodec.csv(repository.read().trainingDiary()) else BackupCodec.encode(repository.backup())
         val resolver = getApplication<Application>().contentResolver

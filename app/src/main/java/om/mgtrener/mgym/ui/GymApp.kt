@@ -16,20 +16,21 @@ fun GymApp(model: GymViewModel) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var workoutOpen by rememberSaveable { mutableStateOf(false) }
     var selectedWorkout by rememberSaveable { mutableStateOf<Long?>(null) }
+    var planOpen by rememberSaveable { mutableStateOf(false) }
 
 
     val active = model.data.active
     val result = model.completedId
-    val fixedScreen = workoutOpen || selectedWorkout != null || result != null || tab == 1 || tab == 2
+    val fixedScreen = planOpen || workoutOpen || selectedWorkout != null || result != null || tab == 1 || tab == 2
     val contentScroll = key(tab, workoutOpen, selectedWorkout, result) { rememberScrollState() }
     LaunchedEffect(model.ready) { if(model.ready && active != null) workoutOpen = true }
     LaunchedEffect(active?.id) { if(active != null) workoutOpen = true else workoutOpen = false }
-    BackHandler(workoutOpen || selectedWorkout != null || result != null) {
-        workoutOpen = false; selectedWorkout = null; model.closeResult()
+    BackHandler(planOpen || workoutOpen || selectedWorkout != null || result != null) {
+        planOpen = false; workoutOpen = false; selectedWorkout = null; model.closeResult()
     }
     Scaffold(
         bottomBar = {
-            if(!workoutOpen && selectedWorkout == null && result == null) GymNavigation(tab) { tab = it }
+            if(!planOpen && !workoutOpen && selectedWorkout == null && result == null) GymNavigation(tab) { tab = it }
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -43,6 +44,7 @@ fun GymApp(model: GymViewModel) {
             } else Column(Modifier.weight(1f).then(if(fixedScreen) Modifier else Modifier.verticalScroll(contentScroll)).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when {
+                    planOpen -> Bench150Screen { planOpen = false }
                     result != null -> {
                         TextButton(onClick = { model.closeResult() }) { Text("← Сегодня") }
                         WorkoutDetail(model.data, result, true, model::reorder, !model.busy, model::saveCompleted, model::removeCompleted)
@@ -57,7 +59,7 @@ fun GymApp(model: GymViewModel) {
                     }
                     tab == 0 -> TodayScreen(model, { exercise ->
                         if(active != null) workoutOpen = true else model.start(listOf(exercise))
-                    }, { selectedWorkout = it })
+                    }, { selectedWorkout = it }, { planOpen = true })
                     tab == 1 -> CalendarScreen(model)
                     tab == 2 -> ProgressScreen(model.data)
                     tab == 3 -> AchievementsScreen(model.data)
@@ -72,3 +74,4 @@ fun GymApp(model: GymViewModel) {
             text = { Text(message) }, confirmButton = { TextButton(onClick = { model.dismissMessage() }) { Text("Понятно") } })
     }
 }
+
