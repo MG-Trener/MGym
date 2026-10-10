@@ -43,6 +43,14 @@ fun SettingsScreen(model: GymViewModel) {
         Text("Единицы: кг · тема: графит", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     Panel {
+        Text("Путь к 150 кг", style = MaterialTheme.typography.titleLarge)
+        Text("Полный календарь подготовки и таблицы подходов доступны также на сайте.")
+        OutlinedButton(onClick = {
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, "https://mg-trener.github.io/Gym-150/".toUri())) }
+                .onFailure { model.notify("Не удалось открыть сайт в браузере") }
+        }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Открыть сайт подготовки ↗") }
+    }
+    Panel {
         Text("Резервная копия", style = MaterialTheme.typography.titleLarge)
         Text("JSON сохраняет тренировки, подходы, текущий ввод и настройки звука и вибрации. CSV предназначен для таблиц.")
         OutlinedButton(onClick = { exportJson.launch("MGym-backup.json") }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Сохранить JSON / backup") }
@@ -103,3 +111,4 @@ fun SettingsScreen(model: GymViewModel) {
             dismissButton = { TextButton(onClick = model::cancelImport) { Text("Отмена") } })
     }
 }
+
