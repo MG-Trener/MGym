@@ -3,6 +3,7 @@ package om.mgtrener.mgym.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -54,6 +56,7 @@ fun WorkoutScreen(model: GymViewModel, collapse: () -> Unit = {}) {
         }
     }
     val timerDisplay = model.restTimer.display(timerNow)
+    fun resetTimer() { model.resetRestTimer();timerNow=System.currentTimeMillis() }
     Column(Modifier.fillMaxSize().imePadding(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = collapse, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(36.dp).semantics { contentDescription = "Свернуть тренировку" }) { Text("‹", fontSize = 28.sp) }
@@ -68,16 +71,18 @@ fun WorkoutScreen(model: GymViewModel, collapse: () -> Unit = {}) {
                     Text(timerDisplay,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold,color=Lime,
                         modifier=Modifier.semantics {contentDescription="Таймер отдыха";stateDescription=timerDisplay})
                 }
-                Row(horizontalArrangement=Arrangement.spacedBy(2.dp)) {
-                    TextButton(onClick={
+                Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(onClick={
                         if(model.restTimer.running) model.pauseRestTimer() else model.startRestTimer()
                         timerNow=System.currentTimeMillis()
-                    },contentPadding=PaddingValues(horizontal=4.dp),modifier=Modifier.heightIn(min=32.dp)
+                    },contentPadding=PaddingValues(horizontal=8.dp),modifier=Modifier.heightIn(min=44.dp)
                         .semantics {contentDescription=if(model.restTimer.running) "Пауза таймера" else "Запустить таймер"}) {
                         Text(if(model.restTimer.running) "Пауза" else "Старт",style=MaterialTheme.typography.labelMedium)
                     }
-                    TextButton(onClick={model::resetRestTimer},contentPadding=PaddingValues(horizontal=4.dp),
-                        modifier=Modifier.heightIn(min=32.dp).semantics {contentDescription="Сбросить таймер"}) {
+                    OutlinedButton(onClick=::resetTimer,contentPadding=PaddingValues(horizontal=8.dp),
+                        modifier=Modifier.heightIn(min=44.dp)
+                            .pointerInput(active.id) { detectTapGestures(onPress = { resetTimer();tryAwaitRelease() }) }
+                            .semantics {contentDescription="Сбросить таймер"}) {
                         Text("Сброс",style=MaterialTheme.typography.labelMedium)
                     }
                 }

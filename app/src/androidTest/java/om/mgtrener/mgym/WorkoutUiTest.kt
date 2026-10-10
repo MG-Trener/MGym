@@ -232,4 +232,28 @@ class WorkoutUiTest {
             assertEquals(listOf(5,6,8),read().sets.map {it.reps})
         }
     }
+    @Test fun restTimerResetsWithKeyboardOpenAndWhileRunning() {
+        check(context.packageName.endsWith(".uitest"))
+        context.deleteDatabase("mgym.db")
+        ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitUntil(15000) {compose.onAllNodesWithContentDescription("Начать: Жим штанги лёжа").fetchSemanticsNodes().isNotEmpty()}
+            compose.onNodeWithContentDescription("Начать: Жим штанги лёжа").performClick()
+            compose.waitUntil(10000) {compose.onAllNodesWithContentDescription("Вес, кг").fetchSemanticsNodes().isNotEmpty()}
+            compose.onNodeWithContentDescription("Вес, кг").performTextReplacement("130")
+            compose.onNodeWithContentDescription("Запустить таймер").performTouchInput { click() }
+            compose.waitUntil(5000) {
+                compose.onAllNodesWithContentDescription("Таймер отдыха").fetchSemanticsNodes()
+                    .any { it.config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription] != "00:00" }
+            }
+            compose.onNodeWithContentDescription("Сбросить таймер").performTouchInput { click() }
+            capture("timer-reset-keyboard")
+            compose.onNodeWithText("00:00").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Запустить таймер").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Вес, кг").assertTextEquals("130")
+            compose.onNodeWithContentDescription("Запустить таймер").performTouchInput { click() }
+            compose.onNodeWithContentDescription("Пауза таймера").performTouchInput { click() }
+            compose.onNodeWithContentDescription("Сбросить таймер").performTouchInput { click() }
+            compose.onNodeWithText("00:00").assertIsDisplayed()
+        }
+    }
 }
