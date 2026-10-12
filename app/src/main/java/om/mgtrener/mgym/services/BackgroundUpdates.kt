@@ -30,7 +30,7 @@ object BackgroundUpdates {
     private const val DAY = 24L * 60 * 60 * 1000
     private const val CHANNEL = "mgym_updates"
 
-    fun enabled(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun enabled(context: Context): Boolean = !BuildConfig.STORE_DISTRIBUTION && context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         .getBoolean(ENABLED, true)
 
     fun setEnabled(context: Context, value: Boolean) {
@@ -94,6 +94,7 @@ class UpdateCheckJob : JobService() {
     private var worker: Thread? = null
 
     override fun onStartJob(params: JobParameters): Boolean {
+        if(BuildConfig.STORE_DISTRIBUTION) return false
         worker = Thread {
             val update = runCatching { GitHubUpdateProvider(BuildConfig.VERSION_NAME).check() }.getOrNull()
             if (!Thread.currentThread().isInterrupted && update != null) {

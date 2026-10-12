@@ -17,6 +17,8 @@ fun GymApp(model: GymViewModel) {
     var workoutOpen by rememberSaveable { mutableStateOf(false) }
     var selectedWorkout by rememberSaveable { mutableStateOf<Long?>(null) }
     var planOpen by rememberSaveable { mutableStateOf(false) }
+    var disciplineIndex by rememberSaveable { mutableIntStateOf(0) }
+    val discipline = trainingExercises[disciplineIndex]
 
 
     val active = model.data.active
@@ -26,7 +28,7 @@ fun GymApp(model: GymViewModel) {
     LaunchedEffect(model.ready) { if(model.ready && active != null) workoutOpen = true }
     LaunchedEffect(active?.id) { if(active != null) workoutOpen = true else workoutOpen = false }
     BackHandler(planOpen || workoutOpen || selectedWorkout != null || result != null) {
-        planOpen = false; workoutOpen = false; selectedWorkout = null; model.closeResult()
+        if(planOpen) model.refreshDiary(); planOpen = false; workoutOpen = false; selectedWorkout = null; model.closeResult()
     }
     Scaffold(
         bottomBar = {
@@ -44,7 +46,7 @@ fun GymApp(model: GymViewModel) {
             } else Column(Modifier.weight(1f).then(if(fixedScreen) Modifier else Modifier.verticalScroll(contentScroll)).padding(if(planOpen) 0.dp else 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when {
-                    planOpen -> BenchPlannerScreen { planOpen = false; model.refreshDiary() }
+                    planOpen -> BenchPlannerScreen(discipline) { planOpen = false; model.refreshDiary() }
                     result != null -> {
                         TextButton(onClick = { model.closeResult() }) { Text("← Сегодня") }
                         WorkoutDetail(model.data, result, true, model::reorder, !model.busy, model::saveCompleted, model::removeCompleted)
@@ -57,11 +59,11 @@ fun GymApp(model: GymViewModel) {
 
                         WorkoutScreen(model) { workoutOpen = false }
                     }
-                    tab == 0 -> TodayScreen(model, { exercise ->
+                    tab == 0 -> TodayScreen(model, disciplineIndex, { disciplineIndex = it }, { exercise ->
                         if(active != null) workoutOpen = true else model.start(listOf(exercise))
                     }, { selectedWorkout = it }, { planOpen = true })
-                    tab == 1 -> CalendarScreen(model)
-                    tab == 2 -> ProgressScreen(model.data)
+                    tab == 1 -> CalendarScreen(model, disciplineIndex) { disciplineIndex = it }
+                    tab == 2 -> ProgressScreen(model.data, disciplineIndex) { disciplineIndex = it }
                     tab == 3 -> AchievementsScreen(model.data)
                     else -> SettingsScreen(model)
                 }

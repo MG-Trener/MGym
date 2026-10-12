@@ -18,7 +18,7 @@ import om.mgtrener.mgym.ui.theme.Lime
 
 @Composable
 fun GymNavigation(selected: Int, select: (Int) -> Unit) {
-    val labels = listOf("Сегодня", "Календарь", "Прогресс", "Награды", "Настройки")
+    val labels = listOf("Тренировки", "Календарь", "Прогресс", "Награды", "Настройки")
     Surface(color = MaterialTheme.colorScheme.background) {
         Column(Modifier.windowInsetsPadding(WindowInsets.navigationBars)) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))

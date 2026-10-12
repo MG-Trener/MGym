@@ -53,7 +53,7 @@ class AnalyticsTest {
         val visible = GymData(workouts,sets).trainingDiary()
         assertEquals(3,visible.completed.size)
         assertEquals(setOf(Exercise.BENCH,Exercise.DEADLIFT,Exercise.SQUAT),visible.sets.map {it.exercise}.toSet())
-        assertEquals(listOf(200.0,400.0,600.0),trainingExercises.map { exercise ->
+        assertEquals(listOf(200.0,600.0,400.0),trainingExercises.map { exercise ->
             Analytics.summarize(visible.completedSets().filter {it.exercise==exercise}).volume
         })
     }

@@ -28,8 +28,9 @@ import java.util.Locale
 
 private val ru = Locale.forLanguageTag("ru")
 @Composable
-fun CalendarScreen(model: GymViewModel) {
-    val data=model.data
+fun CalendarScreen(model: GymViewModel, disciplineIndex: Int = 0, onDiscipline: (Int) -> Unit = {}) {
+    val exercise=trainingExercises[disciplineIndex]
+    val data=model.data.copy(workouts=model.data.workouts.filter { exercise in it.exercises },sets=model.data.sets.filter {it.exercise==exercise})
     var year by rememberSaveable { mutableIntStateOf(LocalDate.now().year) }
     var month by rememberSaveable { mutableIntStateOf(LocalDate.now().monthValue) }
     var mode by rememberSaveable { mutableIntStateOf(0) }
@@ -40,6 +41,7 @@ fun CalendarScreen(model: GymViewModel) {
         data.completed.filter { day(it.startedAt).year==year && (mode==0 || day(it.startedAt).monthValue==month) }
     }
     Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+        CompactTabs(trainingExercises.map {it.short},disciplineIndex,onDiscipline)
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             Text("Календарь",style=MaterialTheme.typography.titleLarge,modifier=Modifier.weight(1f))
             Row(Modifier.width(150.dp)) { CompactTabs(listOf("Год","Месяц"),mode) {mode=it} }
@@ -53,7 +55,7 @@ fun CalendarScreen(model: GymViewModel) {
                 if(mode==0) year++ else ym.plusMonths(1).let {year=it.year;month=it.monthValue}
             },enabled=if(mode==0) year<2099 else ym<YearMonth.of(2099,12)) {Text("→")}
         }
-        Text("${workouts.size} тренировок · жим / тяга / присед",
+        Text("${workouts.size} тренировок · ${exercise.title}",
             style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         if(mode==0) {
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)) {

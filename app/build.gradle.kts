@@ -14,14 +14,25 @@ android {
             "om.mgtrener.mgym.uitest" else "om.mgtrener.mgym"
         minSdk = 30
         targetSdk = 37
-        versionCode = 13
-        versionName = "0.3.0"
+        versionCode = 14
+        versionName = "0.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    val uploadVars = listOf("MGYM_UPLOAD_STORE", "MGYM_UPLOAD_STORE_PASSWORD", "MGYM_UPLOAD_ALIAS", "MGYM_UPLOAD_KEY_PASSWORD")
+    val uploadReady = uploadVars.all { !System.getenv(it).isNullOrBlank() }
+    if (uploadReady) signingConfigs.create("upload") {
+        storeFile = file(System.getenv("MGYM_UPLOAD_STORE"))
+        storePassword = System.getenv("MGYM_UPLOAD_STORE_PASSWORD")
+        keyAlias = System.getenv("MGYM_UPLOAD_ALIAS")
+        keyPassword = System.getenv("MGYM_UPLOAD_KEY_PASSWORD")
+    }
     buildTypes {
+        debug { buildConfigField("boolean", "STORE_DISTRIBUTION", "false") }
         release {
+            buildConfigField("boolean", "STORE_DISTRIBUTION", "true")
+            if (uploadReady) signingConfig = signingConfigs.getByName("upload")
             optimization {
                 enable = false
             }

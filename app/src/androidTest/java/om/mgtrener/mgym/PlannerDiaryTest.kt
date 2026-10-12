@@ -63,4 +63,34 @@ class PlannerDiaryTest {
         val repo=GymRepository(GymDatabase(context));assertEquals(100.0,repo.read().sets.single().weight,0.0)
         assertTrue(BenchPlannerStorage(context,{},{}).write(PlannerDiary.KEY,state().toString()));assertEquals(2,repo.read().completed.size);repo.close()
     }
+
+    @Test fun threeMovementFactsKeepIndependentHistoryAndAccessoryOnlyBelongsToItsDiscipline() {
+        val state=state(); val original=JSONObject(context.assets.open("bench-planner/plan.json").bufferedReader().use {it.readText()})
+        val originalLog=state.getJSONObject("logs").getJSONObject("original|2026-10-12")
+        val plans=JSONArray(); val logs=JSONObject()
+        for((index,movement) in listOf("squat","deadlift").withIndex()) {
+            val plan=JSONObject(original.toString()).put("id","p-"+movement).put("profile",JSONObject().put("discipline",movement))
+            val ex=plan.getJSONArray("sessions").getJSONObject(0).getJSONArray("exercises")
+            ex.getJSONObject(1).put("name",if(index==0) "Сгибание ног в тренажёре" else "Ягодичный мост с весом")
+            val log=JSONObject(originalLog.toString())
+            if(index==1) for(i in 0 until ex.getJSONObject(0).getJSONArray("sets").length())log.getJSONArray("sets").getJSONObject(i).put("kg",JSONObject.NULL).put("reps",JSONObject.NULL)
+            plans.put(plan);logs.put("p-$movement|2026-10-12",log)
+        }
+        state.put("plans",plans).put("logs",logs).put("active","p-squat")
+        val store=BenchPlannerStorage(context,{},{});assertTrue(store.write(PlannerDiary.KEY,state.toString()))
+        GymRepository(GymDatabase(context)).let {repo ->
+            val data=repo.read();assertEquals(2,data.completed.size);assertTrue(data.sets.none {it.exercise==Exercise.BENCH})
+            assertTrue(data.sets.any {it.exercise==Exercise.LEG_CURL});assertTrue(data.sets.any {it.exercise==Exercise.HIP_THRUST})
+            assertTrue(data.completed.first {it.sourceKey!!.startsWith("p-deadlift")}.exercises.contains(Exercise.DEADLIFT))
+            assertTrue(store.write(PlannerDiary.KEY,state.toString()));assertEquals(2,repo.read().completed.size);repo.close()
+        }
+    }
+    @Test fun schemaFourUpgradeKeepsHistoryAndAcceptsNewAccessories() {
+        val repo=GymRepository(GymDatabase(context));val id=repo.start(listOf(Exercise.SQUAT,Exercise.LEG_CURL));repo.saveSet(LiftSet(workoutId=id,exercise=Exercise.SQUAT,weight=100.0,reps=5));repo.close()
+        GymDatabase(context).use {it.writableDatabase.version=4}
+        GymRepository(GymDatabase(context)).let {r ->
+            assertEquals(100.0,r.read().sets.single().weight,0.0)
+            r.saveSet(LiftSet(workoutId=id,exercise=Exercise.LEG_CURL,weight=20.0,reps=10));assertEquals(2,r.read().sets.size);r.close()
+        }
+    }
 }

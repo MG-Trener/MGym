@@ -25,7 +25,7 @@ class GymDatabase(context: Context) : SQLiteOpenHelper(context, "mgym.db", null,
         db.execSQL("""CREATE TABLE $name (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             workout_id INTEGER NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
-            exercise TEXT NOT NULL CHECK(exercise IN ('BENCH','DEADLIFT','SQUAT','CURL','CABLE_ROW','DUMBBELL_ROW','LAT_PULLDOWN','TRICEPS','REAR_DELT','OVERHEAD_TRICEPS')),
+            exercise TEXT NOT NULL CHECK(exercise IN ('BENCH','DEADLIFT','SQUAT','CURL','CABLE_ROW','DUMBBELL_ROW','LAT_PULLDOWN','TRICEPS','REAR_DELT','OVERHEAD_TRICEPS','LEG_CURL','SPLIT_SQUAT','HIP_THRUST')),
             weight REAL NOT NULL CHECK(weight > 0 AND weight <= 1500),
             reps INTEGER NOT NULL CHECK(reps BETWEEN 1 AND 200),
             kind TEXT NOT NULL, technique TEXT NOT NULL,
@@ -63,6 +63,13 @@ class GymDatabase(context: Context) : SQLiteOpenHelper(context, "mgym.db", null,
             createSetIndexes(db)
             createPlanner(db)
         }
+        if(oldVersion >= 4 && oldVersion < 5) {
+            createSets(db, "sets_v5")
+            db.execSQL("INSERT INTO sets_v5 SELECT * FROM sets")
+            db.execSQL("DROP TABLE sets")
+            db.execSQL("ALTER TABLE sets_v5 RENAME TO sets")
+            createSetIndexes(db)
+        }
     }
-    companion object { const val VERSION = 4 }
+    companion object { const val VERSION = 5 }
 }

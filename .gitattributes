@@ -1,3 +1,6 @@
-# Preserve the reviewed website engine bytes and their recorded SHA-256 on every OS.
-app/src/main/assets/bench-planner/generator.js -text
-app/src/main/assets/bench-planner/engine-v2.js -text
+*.js text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.md text eol=lf

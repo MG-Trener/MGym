@@ -30,9 +30,10 @@ class WorkoutUiTest {
         check(context.packageName.endsWith(".uitest"))
         context.deleteDatabase("mgym.db")
         ActivityScenario.launch(MainActivity::class.java).use {
-            compose.waitUntil(15000) {compose.onAllNodesWithContentDescription("Начать: Становая тяга").fetchSemanticsNodes().isNotEmpty()}
+            compose.waitUntil(15000) {compose.onAllNodesWithContentDescription("Раздел: Становая тяга").fetchSemanticsNodes().isNotEmpty()}
+            compose.onNodeWithContentDescription("Раздел: Становая тяга").performScrollTo().performClick()
             capture("home-three")
-            compose.onNodeWithContentDescription("Начать: Становая тяга").performClick()
+            compose.onNodeWithContentDescription("Начать: Становая тяга").performScrollTo().performClick()
             compose.waitUntil(10000) {read().active?.exercises == listOf(Exercise.DEADLIFT)}
             compose.onNodeWithContentDescription("Вес, кг").performTextReplacement("150")
             compose.onNodeWithContentDescription("Повторы").performTextReplacement("5")
@@ -40,7 +41,8 @@ class WorkoutUiTest {
             compose.onNodeWithText("Завершить",useUnmergedTree=true).performClick()
             compose.waitUntil(10000) {read().completed.size==1}
             compose.onNodeWithText("← Сегодня").performClick()
-            compose.onNodeWithContentDescription("Начать: Приседания").performClick()
+            compose.onNodeWithContentDescription("Раздел: Приседания").performScrollTo().performClick()
+            compose.onNodeWithContentDescription("Начать: Приседания").performScrollTo().performClick()
             compose.waitUntil(10000) {read().active?.exercises == listOf(Exercise.SQUAT)}
             compose.onNodeWithContentDescription("Вес, кг").performTextReplacement("120")
             compose.onNodeWithContentDescription("Повторы").performTextReplacement("5")
@@ -127,8 +129,8 @@ class WorkoutUiTest {
             r.close()
         }
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            compose.waitUntil(15000) {compose.onAllNodesWithText("1140 кг").fetchSemanticsNodes().isNotEmpty()}
-            compose.onNodeWithText("1140 кг").performClick()
+            compose.waitUntil(15000) {compose.onAllNodesWithText("1140 кг",substring=true).fetchSemanticsNodes().isNotEmpty()}
+            compose.onNodeWithText("1140 кг",substring=true).performScrollTo().performClick()
             compose.onNodeWithText("Редактировать").performClick()
             compose.onNodeWithText("80").performClick()
             compose.onNodeWithContentDescription("Вес, кг").performTextReplacement("82,5")

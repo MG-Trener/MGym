@@ -36,13 +36,14 @@ internal object PlannerDiary {
                         val session=(0 until sessions.length()).map { sessions.getJSONObject(it) }.first { it.getString("id")==date.toString() }
                         val log=logs.getJSONObject(logKey); val actual=log.getJSONArray("sets")
                         require(actual.length()<=80)
-                        val hash=MessageDigest.getInstance("SHA-256").digest(log.toString().toByteArray()).joinToString("") { "%02x".format(it) }
+                        val hash=MessageDigest.getInstance("SHA-256").digest((log.toString()+plan.optJSONObject("profile")?.optString("discipline","bench").orEmpty()).toByteArray()).joinToString("") { "%02x".format(it) }
                         val existing=db.rawQuery("SELECT id,source_hash FROM workouts WHERE source_key=?",arrayOf(logKey)).use { if(it.moveToFirst()) it.getLong(0) to it.getString(1) else null }
                         if(existing?.second==hash)continue
+                        val movement=when(plan.optJSONObject("profile")?.optString("discipline", "bench") ?: "bench") { "bench" -> Exercise.BENCH; "squat" -> Exercise.SQUAT; "deadlift" -> Exercise.DEADLIFT; else -> error("Неизвестная дисциплина") }
                         val rows=mutableListOf<ContentValues>();val exercises=session.getJSONArray("exercises");var index=0
                         for(ei in 0 until exercises.length()) {
                             val ex=exercises.getJSONObject(ei); val name=ex.getString("name")
-                            val exercise=if(ei==0) Exercise.BENCH else requireNotNull(Exercise.entries.find { it.title==name }) { "Неизвестное упражнение: $name" }
+                            val exercise=if(ei==0) movement else requireNotNull(Exercise.entries.find { it.title==name }) { "Неизвестное упражнение: $name" }
                             val prescribed=ex.getJSONArray("sets")
                             for(si in 0 until prescribed.length()) {
                                 val v=actual.optJSONObject(index++ ) ?: continue
@@ -57,14 +58,14 @@ internal object PlannerDiary {
                                     put("kind",if(t.optString("kind")=="Разминка") "WARMUP" else "WORK")
                                     put("technique",if(ei==0&&log.optBoolean("verified")) "STRICT" else "NORMAL")
                                     put("rpe",rpe);put("position",si)
-                                    put("comment",("План: "+plan.optString("name","Путь к 150 кг")+" · "+log.getString("status")+if(ei==0&&log.optBoolean("verified")) " · пауза подтверждена" else "").take(1000))
+                                    put("comment",("План: "+plan.optString("name","Путь к 150 кг")+" · "+log.getString("status")+if(ei==0&&log.optBoolean("verified")) if(movement==Exercise.BENCH) " · пауза подтверждена" else " · техника подтверждена" else "").take(1000))
                                 })
                             }
                         }
                         // No invented sets: even a partial saved workout contains only performed rows.
                         if(rows.isEmpty()) { if(existing!=null) db.delete("workouts","id=?",arrayOf(existing.first.toString()));continue }
                         val dateMillis=date.atTime(12,0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                        val values=ContentValues().apply { put("started_at",dateMillis);put("finished_at",dateMillis);put("exercises",rows.map { it.getAsString("exercise") }.distinct().joinToString(","));put("source_key",logKey);put("source_hash",hash) }
+                        val values=ContentValues().apply { put("started_at",dateMillis);put("finished_at",dateMillis);put("exercises",(listOf(movement.name)+rows.map { it.getAsString("exercise") }).distinct().joinToString(","));put("source_key",logKey);put("source_hash",hash) }
                         val id=existing?.first ?: db.insertOrThrow("workouts",null,values)
                         if(existing!=null){db.update("workouts",values,"id=?",arrayOf(id.toString()));db.delete("sets","workout_id=?",arrayOf(id.toString()))}
                         rows.forEach { it.put("workout_id",id);db.insertOrThrow("sets",null,it) }
