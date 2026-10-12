@@ -3,3 +3,13 @@ html{color-scheme:dark}body{min-width:0}.topbar{padding:5px 8px}.topbar .brand{f
 main{padding:8px}.topbar button{min-height:40px}input,select,button{touch-action:manipulation}
 dialog input,dialog select,dialog button{min-height:44px}dialog{max-height:94vh}
 .log-table input,.log-table select{font-size:16px}footer{display:none}
+/* WebView can collapse an auto-height <dialog> to its padding. Give the modal
+   an explicit viewport height and put scrolling in a separate flex child. */
+dialog[open]{position:fixed;inset:auto;top:var(--mg-dialog-top,8px);left:8px;width:calc(100% - 16px);height:var(--mg-dialog-height,calc(100vh - 16px));min-height:0;max-height:none;margin:0;padding:0;display:flex;flex-direction:column;overflow:hidden}
+dialog>.dialog-heading{flex:0 0 auto;margin:0;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+dialog>.dialog-heading h2{min-width:0;font-size:17px;line-height:1.25}
+dialog>.dialog-heading button{flex:0 0 auto}
+.mobile-dialog-body{flex:1 1 0;min-height:0;overflow:auto;overscroll-behavior:contain;padding:10px 12px;scroll-padding:12px}
+.mobile-dialog-footer{flex:0 0 auto;padding:8px 12px;border-top:1px solid var(--line);background:var(--panel)}
+.mobile-dialog-footer button{width:100%;min-height:44px}
+body:has(dialog[open]){overflow:hidden}

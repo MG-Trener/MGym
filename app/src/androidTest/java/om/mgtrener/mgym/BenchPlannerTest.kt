@@ -6,6 +6,12 @@ import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
+import android.view.WindowInsets
+import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.action.GeneralClickAction
+import androidx.test.espresso.action.Press
+import androidx.test.espresso.action.Tap
+import androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
@@ -35,10 +41,60 @@ class BenchPlannerTest {
         compose.waitUntil(20000) { runCatching { js(scenario,"!!document.querySelector('#detail table')") == "true" }.getOrDefault(false) }
     }
     private fun capture(scenario: ActivityScenario<MainActivity>, name: String) {
-        scenario.onActivity { a -> val view=requireNotNull(find(a.window.decorView)); val bitmap=Bitmap.createBitmap(view.width,view.height,Bitmap.Config.ARGB_8888)
-            view.draw(android.graphics.Canvas(bitmap))
-            java.io.File(context.getExternalFilesDir(null),name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
-            bitmap.recycle()
+        val painted=CountDownLatch(1)
+        scenario.onActivity { a -> requireNotNull(find(a.window.decorView)).postVisualStateCallback(1L,object: WebView.VisualStateCallback(){
+            override fun onComplete(requestId: Long) { painted.countDown() }
+        }) }
+        check(painted.await(10,TimeUnit.SECONDS))
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        val bitmap=requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+        java.io.File(context.getExternalFilesDir(null),name).outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG,100,it)
+        }
+        bitmap.recycle()
+    }
+    private fun tapWeb(scenario: ActivityScenario<MainActivity>, selector: String) {
+        val coordinates=JSONObject(js(scenario,"(()=>{const r=document.querySelector(${JSONObject.quote(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,width:innerWidth};})()"))
+        onView(isAssignableFrom(WebView::class.java)).perform(GeneralClickAction(Tap.SINGLE, { view ->
+            val location=IntArray(2);view.getLocationOnScreen(location)
+            val scale=view.width/coordinates.getDouble("width")
+            floatArrayOf((location[0]+coordinates.getDouble("x")*scale).toFloat(),(location[1]+coordinates.getDouble("y")*scale).toFloat())
+        }, Press.FINGER))
+    }
+    private fun usableDialog(scenario: ActivityScenario<MainActivity>): Boolean = js(scenario,"(()=>{const d=document.querySelector('#log-dialog'),b=d.querySelector('.mobile-dialog-body'),s=d.querySelector('button[form=log-form]'),v=visualViewport;const r=d.getBoundingClientRect(),br=b.getBoundingClientRect(),sr=s.getBoundingClientRect();return r.height>(v.height*.8)&&r.height<=v.height&&br.height>80&&sr.bottom<=v.offsetTop+v.height&&d.scrollWidth<=d.clientWidth+1;})()") == "true"
+    @Test fun originalPlanLogDialogHasUsableHeight() {
+        check(context.packageName.endsWith(".uitest"))
+        BenchPlannerStorage.clear(context)
+        context.deleteDatabase("mgym.db")
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            compose.waitUntil(15000) { compose.onAllNodesWithText("Путь к 150 кг  ↗").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Путь к 150 кг  ↗").performScrollTo().performClick()
+            ready(scenario)
+            js(scenario,"selectSession('2026-10-12');document.querySelector('#detail button').click()")
+            capture(scenario,"bench-log-fixed.png")
+            val metrics=js(scenario,"(()=>{const d=document.querySelector('#log-dialog'),r=d.getBoundingClientRect();return {height:r.height,viewport:innerHeight,scroll:d.scrollHeight,width:r.width,client:d.clientHeight,form:document.querySelector('#log-form').getBoundingClientRect().height};})()")
+            assertTrue(metrics,JSONObject(metrics).getDouble("height")>200)
+            assertTrue(usableDialog(scenario))
+            tapWeb(scenario,"#log-form input[name=kg-0]")
+            compose.waitUntil(10000) { var visible=false;scenario.onActivity { visible=it.window.decorView.rootWindowInsets?.isVisible(WindowInsets.Type.ime())==true };visible }
+            compose.waitUntil(10000) { usableDialog(scenario) }
+            assertEquals("\"kg-0\"",js(scenario,"document.activeElement.name"))
+            capture(scenario,"bench-log-keyboard.png")
+            InstrumentationRegistry.getInstrumentation().sendStringSync("20")
+            assertEquals("\"20\"",js(scenario,"document.querySelector('[name=kg-0]').value"))
+            tapWeb(scenario,"#log-form input[name=reps-0]")
+            InstrumentationRegistry.getInstrumentation().sendStringSync("12")
+            assertEquals("\"12\"",js(scenario,"document.querySelector('[name=reps-0]').value"))
+            // The final accessory field can be reached while the keyboard is visible.
+            js(scenario,"[...document.querySelectorAll('#log-form input[name^=kg]')].at(-1).scrollIntoView({block:'center'})")
+            compose.waitUntil(10000) { js(scenario,"(()=>{const e=[...document.querySelectorAll('#log-form input[name^=kg]')].at(-1).getBoundingClientRect(),b=document.querySelector('#log-dialog .mobile-dialog-body').getBoundingClientRect();return e.top>=b.top&&e.bottom<=b.bottom;})()") == "true" }
+            tapWeb(scenario,"#log-dialog button[form=log-form]")
+            compose.waitUntil(10000) { js(scenario,"document.querySelector('#log-dialog').open") == "false" }
+            val state=JSONObject(context.getSharedPreferences(BenchPlannerStorage.PREFS,Context.MODE_PRIVATE).getString("mg150-planner-v1",null)!!)
+            assertEquals(20.0,state.getJSONObject("logs").getJSONObject("original|2026-10-12").getJSONArray("sets").getJSONObject(0).getDouble("kg"),0.0)
+            scenario.recreate();ready(scenario)
+            js(scenario,"selectSession('2026-10-12');document.querySelector('#detail button').click()")
+            assertEquals("\"20\"",js(scenario,"document.querySelector('[name=kg-0]').value"))
         }
     }
     @Test fun generatorPersistsAcrossRecreationAndImportsWithoutReplacingDiary() {
