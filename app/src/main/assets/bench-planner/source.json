@@ -1,9 +1,10 @@
 {
   "repository": "MG-Trener/Gym-150",
-  "commit": "6437df48bde7b5aa4a8a53c9e52248f143cc5880",
-  "algorithm": "bench-natural-2",
+  "commit": "4e1455b6128c1a0b76569fcddc82cb72b0f3c309",
+  "algorithm": "bench-natural-3",
   "sha256": {
-    "generator.js": "ff983fa35c00a2e678e0d97b0044378c20c5fbc830b59245f476d12732f03054",
-    "engine-v2.js": "8ce133ab43b3b801ee3c066b91427c552aa5f402a29ed99748227f4c9b994a0b"
+    "generator.js": "d74061418690a421b86eb57890568849fbee4228c9170eb34ca761866f23812e",
+    "engine-v2.js": "8ce133ab43b3b801ee3c066b91427c552aa5f402a29ed99748227f4c9b994a0b",
+    "engine-v3.js": "8d35acf93b1599a4d360e9c6f73893cb0035a25fbc627e269bf4ff494c7f052e"
   }
 }

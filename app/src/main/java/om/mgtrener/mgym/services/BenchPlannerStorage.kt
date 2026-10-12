@@ -8,10 +8,18 @@ import java.io.File
 class BenchPlannerStorage(context: Context, private val onExport: () -> Unit, private val onImport: () -> Unit) {
     private val app = context.applicationContext
     private val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-    @JavascriptInterface fun read(key: String): String? = if (key in KEYS) prefs.getString(key, null) else null
+    @JavascriptInterface fun read(key: String): String? {
+        if(key !in KEYS)return null
+        PlannerDiary.read(app,key)?.let { return it }
+        val old=prefs.getString(key,null) ?: return null
+        // Backfill existing saved plans into history once; subsequent writes are idempotent.
+        PlannerDiary.write(app,key,old)
+        return old
+    }
     @JavascriptInterface fun write(key: String, value: String): Boolean = runCatching {
         require(key in KEYS && value.toByteArray(Charsets.UTF_8).size <= MAX_BYTES)
-        prefs.edit().putString(key, value).commit()
+        PlannerDiary.write(app,key,value)
+        true
     }.getOrDefault(false)
     @JavascriptInterface fun exportBackup(text: String): Boolean = runCatching {
         require(text.toByteArray(Charsets.UTF_8).size <= MAX_BYTES)
@@ -25,9 +33,12 @@ class BenchPlannerStorage(context: Context, private val onExport: () -> Unit, pr
     companion object {
         const val PREFS = "bench-planner-v2"
         const val MAX_BYTES = 2_000_000
-        val KEYS = setOf("mg150-planner-v1", "mg150-planner-v1-before-v2")
+        val KEYS = setOf("mg150-planner-v1", "mg150-planner-v1-before-v2", "mg150-planner-v1-before-v3")
         fun exportFile(context: Context) = File(context.cacheDir, "bench-planner-export.json")
         fun clear(context: Context) {
+            om.mgtrener.mgym.database.GymDatabase(context).use { helper ->
+                helper.writableDatabase.delete("planner_documents",null,null)
+            }
             check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().commit())
             exportFile(context).delete()
             File(context.cacheDir, "bench-planner-import.json").delete()

@@ -6,13 +6,14 @@
   <meta name="theme-color" content="#101615">
   <meta name="description" content="Своя программа жима лёжа: расчёт нагрузки, фиксированный календарь, журнал подходов и резервные копии. Без фармакологии.">
   <title>Путь к 150 кг · План жима</title>
-  <link rel="stylesheet" href="style.css?v=20261012b">
-  <script src="generator.js?v=20261012b" defer></script>
-  <script src="engine-v2.js?v=20261012b" defer></script>
+  <link rel="stylesheet" href="style.css?v=20261012c">
+  <script src="generator.js?v=20261012c" defer></script>
+  <script src="engine-v2.js?v=20261012c" defer></script>
+  <script src="engine-v3.js?v=20261012c" defer></script>
   <script src="mobile.js" defer></script>
   <link rel="stylesheet" href="mobile.css">
-  <script src="planner.js?v=20261012b" defer></script>
-  <script src="app.js?v=20261012b" defer></script>
+  <script src="planner.js?v=20261012c" defer></script>
+  <script src="app.js?v=20261012c" defer></script>
 </head>
 <body>
   <header class="topbar"><div class="brand">MG<span>150</span></div><div class="topbar-right"><button id="new-plan" type="button">Создать план</button><button id="data-button" type="button">Мои данные</button></div></header>
@@ -27,12 +28,13 @@
   <footer>Жим без фармакологии · даты закреплены · результаты сохраняются на этом устройстве</footer>
   <dialog id="generator-dialog" aria-labelledby="generator-title">
     <div class="dialog-heading"><h2 id="generator-title">Своя программа жима</h2><button type="button" data-close>Закрыть</button></div>
-    <p class="muted">Для взрослых 18–85 лет, на 4–24 недели. Без фармакологии и бустеров. Цель не гарантируется: нагрузка опирается на текущие возможности.</p>
+    <p class="muted">Адаптивный жим: 1–4 занятия в неделю, от 2 недель до 2 лет. Возраст 14–100 лет; до 18 и после 85 — только с индивидуальным сопровождением. Без фармакологии и бустеров. Цель не гарантируется.</p>
     <form id="generator-form">
       <fieldset><legend>Спортсмен и срок</legend><div class="form-grid">
         <label>Название<input name="name" maxlength="60" value="Мой план" required></label>
-        <label>Возраст, лет<input name="age" type="number" min="18" max="85" required></label>
-        <label>Вес тела, кг<input name="bodyweight" type="number" min="35" max="250" step="0.1" required></label>
+        <label>Возраст, лет<input name="age" type="number" min="14" max="100" required></label>
+        <label>Вес тела, кг<input name="bodyweight" type="number" min="20" max="400" step="0.1" required></label>
+        <label>Индивидуальное сопровождение<select name="supervised"><option value="no">Нет / не требуется по возрасту</option><option value="yes">Есть тренер и допуск к нагрузке</option></select></label>
         <label>Желаемый жим, кг<input name="goal" type="number" min="10" max="400" step="0.5" required></label>
         <label>Дата начала<input name="start" type="date" required></label>
         <label>Дата результата / соревнований<input name="target" type="date" required></label>
@@ -46,10 +48,11 @@
           <label>Выполнено повторов<input name="reps" type="number" min="1" max="10" value="1" required></label>
           <label>Техника<select name="technique"><option value="paused">С паузой 1–2 секунды</option><option value="touch">Без паузы / не уверен</option></select></label>
           <label>Дата результата<input name="resultDate" type="date" required></label>
-        </div><p class="muted">Не нужно проверять максимум ради анкеты. Подойдёт чистый рабочий подход; результат без паузы уточняется контрольным жимом с паузой.</p>
+          <label>RPE этого подхода, если известно<input name="resultRpe" type="number" min="6" max="9.5" step="0.5" placeholder="Можно оставить пустым"></label>
+        </div><p class="muted">Не нужно проверять максимум ради анкеты. Подойдёт чистый рабочий подход; результат без паузы уточняется по контрольным подходам.</p>
       </fieldset>
       <fieldset><legend>Расписание и оборудование</legend>
-        <p class="muted">2–3 жима в неделю, минимум день отдыха между ними. При плохом восстановлении — 2.</p>
+        <p class="muted">Выберите 1–4 доступных дня. Соседний день после тяжёлого жима будет лёгким; при ограниченном восстановлении объём уменьшается.</p>
         <div class="weekday-options">
           <label><input type="checkbox" name="weekday" value="1" checked>Пн</label><label><input type="checkbox" name="weekday" value="2">Вт</label><label><input type="checkbox" name="weekday" value="3">Ср</label><label><input type="checkbox" name="weekday" value="4" checked>Чт</label><label><input type="checkbox" name="weekday" value="5">Пт</label><label><input type="checkbox" name="weekday" value="6">Сб</label><label><input type="checkbox" name="weekday" value="0">Вс</label>
         </div><div class="form-grid">
@@ -66,5 +69,6 @@
   <dialog id="data-dialog" aria-labelledby="data-title"><div class="dialog-heading"><h2 id="data-title">Мои данные</h2><button type="button" data-close>Закрыть</button></div><p>Планы и результаты хранятся в MGym на этом устройстве. Через неделю откроется тот же календарь. Пропущенные тренировки не переносятся автоматически.</p><p>Удаление приложения или его данных удалит программы. Сохраните отдельную копию программ. Этот JSON совместим с сайтом: перенос выполняется через файл, автоматической синхронизации нет. Прежние записи из MGym 0.2.6 доступны кнопкой «Прежний план и записи». Копия дневника в настройках не включает программы генератора.</p><div class="actions"><button id="export-data" type="button">Скачать резервную копию</button><button type="button" id="native-import">Загрузить копию</button><input id="import-data" type="file" hidden></div><p id="data-message" role="status"></p><div id="import-preview" hidden><p id="import-summary"></p><button id="confirm-import" type="button" class="primary">Добавить планы из копии</button></div></dialog>
   <dialog id="log-dialog" aria-labelledby="log-title"><div class="dialog-heading"><h2 id="log-title">Результат тренировки</h2><button type="button" data-close>Закрыть</button></div><form id="log-form"><p class="muted">Заполняйте только сделанные подходы. Пустое поле — нет записи. Килограммы указаны как общий вес; для гантели — вес одной гантели.</p><div id="log-sets"></div><div class="form-grid"><label>Статус<select name="status"><option value="planned">Ещё не завершена</option><option value="done">Выполнена</option><option value="skipped">Пропущена</option></select></label><label>Как прошла тренировка<select name="feedback"><option value="ok">Нормально</option><option value="hard">Тяжелее ожидаемого / недовосстановился</option><option value="pain">Была боль</option></select></label></div><p id="log-advice" class="muted"></p><p id="log-error" class="error" role="alert"></p><button class="primary" type="submit">Сохранить результат</button></form></dialog>
   <dialog id="review-dialog" aria-labelledby="review-title"><div class="dialog-heading"><h2 id="review-title">Проверка нагрузки</h2><button type="button" data-close>Закрыть</button></div><p id="review-message"></p><p class="muted">Меняются только будущие незаписанные тренировки. Расписание, прошедшие дни и фактические подходы сохраняются. Повторно одна тренировка не учитывается.</p><button id="apply-review" type="button" class="primary" hidden>Применить поправку к будущим весам</button></dialog>
+  <dialog id="schedule-dialog" aria-labelledby="schedule-title"><div class="dialog-heading"><h2 id="schedule-title">Изменить цель и расписание</h2><button type="button" data-close>Закрыть</button></div><p>Изменятся только будущие дни без записей. История, частичные записи и сегодняшнее назначение сохранятся.</p><form id="schedule-form"><div class="form-grid"><label>Новая дата цели<input type="date" name="target" required></label><label>Цель, кг<input type="number" name="goal" min="10" max="400" step="0.5" required></label><label>Восстановление<select name="recovery"><option value="normal">Обычное</option><option value="limited">Ограниченное</option></select></label></div><div class="weekday-options" id="schedule-weekdays"></div><button type="submit">Посмотреть изменения</button></form><p id="schedule-message" role="status"></p><button id="apply-schedule" class="primary" type="button" hidden>Сохранить новое расписание</button></dialog>
 </body>
 </html>

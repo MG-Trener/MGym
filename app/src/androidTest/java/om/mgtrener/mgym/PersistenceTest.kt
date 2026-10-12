@@ -137,7 +137,7 @@ class PersistenceTest {
     }
     @Test fun schemaVersionAndCsvEscaping() {
         val helper = GymDatabase(context)
-        assertEquals(3,helper.readableDatabase.version)
+        assertEquals(4,helper.readableDatabase.version)
         helper.close()
         val id = repository.start(listOf(Exercise.BENCH))
         repository.saveSet(Draft(comment="=HYPERLINK(\"x\")\nline").toSet(id))
@@ -192,7 +192,7 @@ class PersistenceTest {
             db.version=2
         }
         repository=GymRepository(GymDatabase(context))
-        assertEquals(3,GymDatabase(context).use {it.readableDatabase.version})
+        assertEquals(4,GymDatabase(context).use {it.readableDatabase.version})
         assertEquals(10L,repository.read().sets.single().id)
         assertEquals("kept",repository.read().sets.single().comment)
         val id=repository.start(listOf(Exercise.DEADLIFT))

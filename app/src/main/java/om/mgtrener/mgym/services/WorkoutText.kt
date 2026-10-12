@@ -14,7 +14,7 @@ object WorkoutText {
         return buildString {
             appendLine("MGym · " + Instant.ofEpochMilli(workout.startedAt).atZone(ZoneId.systemDefault())
                 .format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")))
-            workout.exercises.filter {it in trainingExercises}.forEach { exercise ->
+            workout.exercises.filter {it != Exercise.CURL}.forEach { exercise ->
                 val sets = data.setsFor(id).filter { it.exercise == exercise }
                 if(sets.isNotEmpty()) {
                     appendLine(); appendLine(exercise.title)
@@ -26,7 +26,7 @@ object WorkoutText {
                     }
                     val stats=Analytics.summarize(sets)
                     appendLine("Объём: ${number(stats.volume)} кг · Повторы: ${stats.reps}")
-                    stats.e1rm?.let { appendLine("e1RM ≈ ${number(it)} кг") }
+                    if(exercise in trainingExercises) stats.e1rm?.let { appendLine("e1RM ≈ ${number(it)} кг") }
                 }
             }
         }.trimEnd()

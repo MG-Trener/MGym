@@ -44,7 +44,7 @@ fun GymApp(model: GymViewModel) {
             } else Column(Modifier.weight(1f).then(if(fixedScreen) Modifier else Modifier.verticalScroll(contentScroll)).padding(if(planOpen) 0.dp else 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when {
-                    planOpen -> BenchPlannerScreen { planOpen = false }
+                    planOpen -> BenchPlannerScreen { planOpen = false; model.refreshDiary() }
                     result != null -> {
                         TextButton(onClick = { model.closeResult() }) { Text("← Сегодня") }
                         WorkoutDetail(model.data, result, true, model::reorder, !model.busy, model::saveCompleted, model::removeCompleted)

@@ -39,6 +39,7 @@ object BackupCodec {
         backup.data.workouts.forEach { w ->
             workouts.put(JSONObject().put("id", w.id).put("startedAt", w.startedAt)
                 .put("finishedAt", w.finishedAt ?: JSONObject.NULL)
+                .put("sourceKey", w.sourceKey ?: JSONObject.NULL).put("sourceHash", w.sourceHash ?: JSONObject.NULL)
                 .put("exercises", JSONArray(w.exercises.map { it.name })))
         }
         val sets = JSONArray()
@@ -63,9 +64,11 @@ object BackupCodec {
             val ex = j.getJSONArray("exercises")
             Workout(j.integer("id"), j.integer("startedAt"),
                 if (j.isNull("finishedAt")) null else j.integer("finishedAt"),
-                (0 until ex.length()).map { Exercise.valueOf(ex.getString(it)) })
+                (0 until ex.length()).map { Exercise.valueOf(ex.getString(it)) },
+                if(j.isNull("sourceKey")) null else j.getString("sourceKey"), if(j.isNull("sourceHash")) null else j.getString("sourceHash"))
         }
         require(workouts.map { it.id }.distinct().size == workouts.size) { "Повторяющиеся тренировки" }
+        require(workouts.mapNotNull { it.sourceKey }.let { it.size==it.distinct().size && it.all { key -> key.length<=160 } }) { "Повторяющиеся записи плана" }
         require(workouts.count { it.finishedAt == null } <= 1) { "Несколько незавершённых тренировок" }
         workouts.forEach {
             require(it.id > 0 && it.startedAt in 0..4102444800000L && (it.finishedAt == null || it.finishedAt in it.startedAt..4102444800000L))

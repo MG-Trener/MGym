@@ -6,21 +6,23 @@
   function date(s){if(typeof s!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(s))throw Error('Укажите корректную дату.');const n=Date.parse(s+'T00:00:00Z');if(!Number.isFinite(n)||iso(n)!==s)throw Error('Некорректная дата.');return n;}
   const days=(a,b)=>(date(b)-date(a))/DAY;
   const round=(n,step,bar)=>Number((bar+Math.max(0,Math.floor((n-bar+1e-8)/step))*step).toFixed(2));
-  function validate(p){
+  function validate(p,extended=false){
     const errors=[];
     const range=(v,a,b)=>typeof v==='number'&&Number.isFinite(v)&&v>=a&&v<=b;
-    if(!range(p.age,18,85)||!Number.isInteger(p.age))errors.push('Автоматический план рассчитан на взрослых 18–85 лет. Для несовершеннолетних нужна отдельная программа с тренером.');
-    if(!range(p.bodyweight,35,250))errors.push('Вес спортсмена: от 35 до 250 кг.');
+    if(!range(p.age,extended?14:18,extended?100:85)||!Number.isInteger(p.age))errors.push('Возраст вне диапазона: 14–100 лет для нового расчёта. До 14 лет нужен индивидуальный план.');
+    if(extended&&(p.age<18||p.age>85)&&p.supervised!==true)errors.push('До 18 и после 85 лет подтвердите индивидуальное сопровождение тренером и допуск к нагрузке.');
+    if(!range(p.bodyweight,extended?20:35,extended?400:250))errors.push('Проверьте массу тела (20–400 кг для нового расчёта).');
     if(!range(p.goal,10,400))errors.push('Цель в жиме: от 10 до 400 кг.');
     if(!['novice','trained','advanced'].includes(p.experience))errors.push('Укажите стаж.');
     if(!['normal','limited'].includes(p.recovery))errors.push('Укажите восстановление.');
     if(!['gym','dumbbells','none'].includes(p.equipment))errors.push('Укажите оборудование для дополнительных упражнений.');
     if(![1,1.25,2.5,5].includes(p.step)||!range(p.bar,5,25))errors.push('Проверьте вес грифа и минимальный шаг общего веса.');
     let duration;
-    try{duration=days(p.start,p.target);if(duration<28||duration>168)errors.push('Выберите период от 4 до 24 недель. Более короткий срок не подходит для этого шаблона.');}catch(e){errors.push(e.message);}
-    if(!Array.isArray(p.weekdays)||![2,3].includes(p.weekdays.length)||new Set(p.weekdays).size!==p.weekdays.length||p.weekdays.some(n=>!Number.isInteger(n)||n<0||n>6))errors.push('Выберите 2 или 3 разных дня недели.');
-    else {const d=[...p.weekdays].sort((a,b)=>a-b);if(d.some((n,i)=>((d[(i+1)%d.length]-n+7)%7)<2))errors.push('Между жимами нужен хотя бы один свободный день, включая переход между неделями.');}
-    if(p.recovery==='limited'&&p.weekdays?.length>2)errors.push('При ограниченном восстановлении выберите 2 дня жима.');
+    try{duration=days(p.start,p.target);if(duration<(extended?14:28)||duration>(extended?730:168))errors.push(extended?'Период: от 2 недель до 2 лет. Длинный срок разбивается на повторяющиеся блоки.':'Выберите период от 4 до 24 недель.');}catch(e){errors.push(e.message);}
+    if(!Array.isArray(p.weekdays)||!(extended?[1,2,3,4]:[2,3]).includes(p.weekdays.length)||new Set(p.weekdays).size!==p.weekdays.length||p.weekdays.some(n=>!Number.isInteger(n)||n<0||n>6))errors.push(extended?'Выберите от 1 до 4 разных дней недели.':'Выберите 2 или 3 разных дня недели.');
+    else if(!extended){const d=[...p.weekdays].sort((a,b)=>a-b);if(d.some((n,i)=>((d[(i+1)%d.length]-n+7)%7)<2))errors.push('Между жимами нужен хотя бы один свободный день.');}
+    if(!extended&&p.recovery==='limited'&&p.weekdays?.length>2)errors.push('При ограниченном восстановлении выберите 2 дня жима.');
+    if(extended&&p.resultRpe!=null&&(!range(p.resultRpe,6,9.5)||p.resultRpe*2%1!==0))errors.push('RPE исходного подхода: 6–9,5 или оставьте пустым.');
     if(!['max','set','unknown'].includes(p.resultType))errors.push('Выберите исходный результат.');
     if(p.resultType!=='unknown'){
       if(!range(p.resultWeight,p.bar,400))errors.push('Исходный вес должен быть не меньше грифа и не больше 400 кг.');
@@ -98,12 +100,18 @@
   }
   // Импорт содержит только данные. Ограничения также защищают интерфейс от огромных/повреждённых файлов.
   function validatePlan(p){
-    if(!p||typeof p.id!=='string'||p.id.length>100||typeof p.name!=='string'||p.name.length>100||!Array.isArray(p.sessions)||p.sessions.length<1||p.sessions.length>100||!Array.isArray(p.rules)||p.rules.length>30||p.rules.some(s=>typeof s!=='string'||s.length>1500))throw Error('Некорректный формат программы.');
-    if(!/^p-[a-zA-Z0-9-]+$/.test(p.id)||!['bench-natural-1','bench-natural-2'].includes(p.algorithm)||p.version!==1||!p.profile||validate(p.profile).length||!p.meta||!(p.meta.base===null||Number.isFinite(p.meta.base)&&p.meta.base>0)||typeof p.meta.ageGroup!=='string'||!Number.isFinite(p.meta.relativeGoal))throw Error('Повреждены параметры расчёта.');
+    if(!p||typeof p.id!=='string'||p.id.length>100||typeof p.name!=='string'||p.name.length>100||!Array.isArray(p.sessions)||p.sessions.length<1||p.sessions.length>650||!Array.isArray(p.rules)||p.rules.length>30||p.rules.some(s=>typeof s!=='string'||s.length>1500))throw Error('Некорректный формат программы.');
+    if(!/^p-[a-zA-Z0-9-]+$/.test(p.id)||!['bench-natural-1','bench-natural-2','bench-natural-3'].includes(p.algorithm)||p.version!==1||!p.profile||validate(p.profile,p.algorithm==='bench-natural-3').length||!p.meta||!(p.meta.base===null||Number.isFinite(p.meta.base)&&p.meta.base>0)||typeof p.meta.ageGroup!=='string'||!Number.isFinite(p.meta.relativeGoal))throw Error('Повреждены параметры расчёта.');
     const ids=new Set();let previous='';
-    if(p.meta.reviewed!==undefined){if(!Array.isArray(p.meta.reviewed)||p.meta.reviewed.length>100)throw Error('Повреждена история пересмотра.');p.meta.reviewed.forEach(date);}
+    if(p.meta.reviewed!==undefined){if(!Array.isArray(p.meta.reviewed)||p.meta.reviewed.length>650)throw Error('Повреждена история пересмотра.');p.meta.reviewed.forEach(date);}
+    if(p.algorithm==='bench-natural-3'){
+      if(p.profile.blockStart){date(p.profile.blockStart);if(p.profile.blockStart<p.profile.start||p.profile.blockStart>=p.profile.target)throw Error('Повреждено начало блока.');}
+      if(p.profile.baseVerifiedOn)date(p.profile.baseVerifiedOn);
+      if(!Array.isArray(p.meta.adjustments)||p.meta.adjustments.length>650||!Array.isArray(p.meta.revisions||[])||(p.meta.revisions||[]).length>650)throw Error('Повреждена история изменений.');
+      for(const a of p.meta.adjustments){date(a.date);if(typeof a.signature!=='string'||a.signature.length>30000||typeof a.message!=='string'||a.message.length>2000||!['normal','recovery'].includes(a.mode)||![a.base,a.beforeBase].every(n=>n===null||Number.isFinite(n)&&n>0&&n<=600))throw Error('Повреждена поправка.');}
+    }
     for(const s of p.sessions){
-      date(s.date);if(s.id!==s.date||ids.has(s.id)||s.date<=previous||!Number.isInteger(s.week)||s.week<1||s.week>25||typeof s.title!=='string'||s.title.length>100||typeof s.note!=='string'||s.note.length>2000||!Array.isArray(s.exercises)||s.exercises.length<1||s.exercises.length>4)throw Error('Повреждён календарь программы.');ids.add(s.id);previous=s.date;
+      date(s.date);if(s.id!==s.date||ids.has(s.id)||s.date<=previous||!Number.isInteger(s.week)||s.week<1||s.week>210||typeof s.title!=='string'||s.title.length>100||typeof s.note!=='string'||s.note.length>2000||!Array.isArray(s.exercises)||s.exercises.length<1||s.exercises.length>4)throw Error('Повреждён календарь программы.');ids.add(s.id);previous=s.date;
       for(const ex of s.exercises){if(typeof ex.name!=='string'||ex.name.length>150||typeof ex.load!=='string'||ex.load.length>1500||!Array.isArray(ex.sets)||!ex.sets.length||ex.sets.length>20)throw Error('Повреждено упражнение.');for(const v of ex.sets){if(!(v.weight===null||Number.isFinite(v.weight)&&v.weight>=0&&v.weight<=500)||!Number.isInteger(v.reps)||v.reps<1||v.reps>100||!Number.isFinite(v.rest)||v.rest<0||v.rest>900||typeof v.kind!=='string'||v.kind.length>150||typeof v.rpe!=='boolean')throw Error('Повреждены подходы.');}}
     }return p;
   }
@@ -116,7 +124,7 @@
       const split=key.lastIndexOf('|'),pid=key.slice(0,split),sid=key.slice(split+1);date(sid);if(!ids.has(pid)||(pid!=='original'&&!v.plans.find(p=>p.id===pid).sessions.some(s=>s.id===sid)))throw Error('Запись ссылается на неизвестную тренировку.');
       if(key.length>160||!log||!['planned','done','skipped'].includes(log.status)||!['ok','hard','pain'].includes(log.feedback)||!Array.isArray(log.sets)||log.sets.length>80)throw Error('Повреждён журнал.');
       if(log.verified!==undefined&&typeof log.verified!=='boolean')throw Error('Повреждено подтверждение техники.');
-      for(const s of log.sets){for(const [k,max] of [['kg',500],['reps',100],['rpe',10]])if(!(s[k]===null||typeof s[k]==='number'&&Number.isFinite(s[k])&&s[k]>=0&&s[k]<=max))throw Error('Некорректный результат в журнале.');}
+      for(const s of log.sets){for(const [k,max] of [['kg',500],['reps',100],['rpe',10]])if(!(s[k]===null||typeof s[k]==='number'&&Number.isFinite(s[k])&&s[k]>=0&&s[k]<=max))throw Error('Некорректный результат в журнале.');if(s.reps!==null&&!Number.isInteger(s.reps))throw Error('Повторы должны быть целыми.');}
     }
     // Не переносим неизвестные корневые поля из файлов.
     return {version:VERSION,active:v.active,plans:v.plans,logs:v.logs};
