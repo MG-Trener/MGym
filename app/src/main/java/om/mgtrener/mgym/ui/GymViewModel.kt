@@ -114,7 +114,7 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
     fun clear() = action(reloadDraft = true, success = {
         getApplication<Application>().getSharedPreferences("bench150-progress-v1", Application.MODE_PRIVATE)
             .edit().clear().apply()
-    }) { repository.clear() }
+    }) { repository.clear(); BenchPlannerStorage.clear(getApplication()) }
     fun export(uri: Uri, csv: Boolean) = action(success = { message = "Файл сохранён" }) {
         val text = if(csv) BackupCodec.csv(repository.read().trainingDiary()) else BackupCodec.encode(repository.backup())
         val resolver = getApplication<Application>().contentResolver

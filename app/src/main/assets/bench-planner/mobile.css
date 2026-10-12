@@ -1,0 +1,5 @@
+/* Android supplies navigation and safe-area insets. Keep input controls touchable. */
+html{color-scheme:dark}body{min-width:0}.topbar{padding:5px 8px}.topbar .brand{font-size:15px}
+main{padding:8px}.topbar button{min-height:40px}input,select,button{touch-action:manipulation}
+dialog input,dialog select,dialog button{min-height:44px}dialog{max-height:94vh}
+.log-table input,.log-table select{font-size:16px}footer{display:none}

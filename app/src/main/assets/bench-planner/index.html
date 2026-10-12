@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101615">
+  <meta name="description" content="Своя программа жима лёжа: расчёт нагрузки, фиксированный календарь, журнал подходов и резервные копии. Без фармакологии.">
+  <title>Путь к 150 кг · План жима</title>
+  <link rel="stylesheet" href="style.css?v=20261012b">
+  <script src="generator.js?v=20261012b" defer></script>
+  <script src="engine-v2.js?v=20261012b" defer></script>
+  <script src="mobile.js" defer></script>
+  <link rel="stylesheet" href="mobile.css">
+  <script src="planner.js?v=20261012b" defer></script>
+  <script src="app.js?v=20261012b" defer></script>
+</head>
+<body>
+  <header class="topbar"><div class="brand">MG<span>150</span></div><div class="topbar-right"><button id="new-plan" type="button">Создать план</button><button id="data-button" type="button">Мои данные</button></div></header>
+  <main>
+    <section class="planner" aria-labelledby="planner-title">
+      <div class="planner-heading"><div><h1 id="planner-title">План тренировок</h1><label class="plan-picker">Программа <select id="plan-select" aria-label="Выбрать программу"><option value="original">Путь к 150 кг · 2026</option></select></label></div><details class="info"><summary>О плане и расчёте</summary><div class="info-content"><p id="plan-summary"></p><ol id="rules"></ol><p><a href="method.html"  rel="noopener">Методика, возрастные группы и источники ↗</a></p></div></details></div>
+      <p id="storage-status" class="status" role="status"></p>
+      <nav class="calendar" aria-label="Календарь тренировок"><div id="weeks" class="weeks" aria-label="Недели плана"></div><div id="sessions" class="sessions" aria-label="Дни выбранной недели"></div></nav>
+      <article id="detail" class="detail" aria-live="polite"></article>
+    </section>
+  </main>
+  <footer>Жим без фармакологии · даты закреплены · результаты сохраняются на этом устройстве</footer>
+  <dialog id="generator-dialog" aria-labelledby="generator-title">
+    <div class="dialog-heading"><h2 id="generator-title">Своя программа жима</h2><button type="button" data-close>Закрыть</button></div>
+    <p class="muted">Для взрослых 18–85 лет, на 4–24 недели. Без фармакологии и бустеров. Цель не гарантируется: нагрузка опирается на текущие возможности.</p>
+    <form id="generator-form">
+      <fieldset><legend>Спортсмен и срок</legend><div class="form-grid">
+        <label>Название<input name="name" maxlength="60" value="Мой план" required></label>
+        <label>Возраст, лет<input name="age" type="number" min="18" max="85" required></label>
+        <label>Вес тела, кг<input name="bodyweight" type="number" min="35" max="250" step="0.1" required></label>
+        <label>Желаемый жим, кг<input name="goal" type="number" min="10" max="400" step="0.5" required></label>
+        <label>Дата начала<input name="start" type="date" required></label>
+        <label>Дата результата / соревнований<input name="target" type="date" required></label>
+        <label>Стаж регулярного жима<select name="experience"><option value="novice">Менее 1 года / после долгого перерыва</option><option value="trained">1–3 года</option><option value="advanced">Более 3 лет</option></select></label>
+        <label>Восстановление сейчас<select name="recovery"><option value="normal">Обычное, нагрузку переношу хорошо</option><option value="limited">Недосып, стресс или высокая утомляемость</option></select></label>
+      </div></fieldset>
+      <fieldset><legend>От какого результата считать</legend>
+        <label>Исходные данные<select name="resultType"><option value="max">Знаю текущий максимум на 1 повтор</option><option value="set">Есть недавний рабочий подход</option><option value="unknown">Пока нет результата — начать с подбора</option></select></label>
+        <div id="result-fields" class="form-grid">
+          <label>Вес штанги, кг<input name="resultWeight" type="number" min="5" max="400" step="0.5" required></label>
+          <label>Выполнено повторов<input name="reps" type="number" min="1" max="10" value="1" required></label>
+          <label>Техника<select name="technique"><option value="paused">С паузой 1–2 секунды</option><option value="touch">Без паузы / не уверен</option></select></label>
+          <label>Дата результата<input name="resultDate" type="date" required></label>
+        </div><p class="muted">Не нужно проверять максимум ради анкеты. Подойдёт чистый рабочий подход; результат без паузы уточняется контрольным жимом с паузой.</p>
+      </fieldset>
+      <fieldset><legend>Расписание и оборудование</legend>
+        <p class="muted">2–3 жима в неделю, минимум день отдыха между ними. При плохом восстановлении — 2.</p>
+        <div class="weekday-options">
+          <label><input type="checkbox" name="weekday" value="1" checked>Пн</label><label><input type="checkbox" name="weekday" value="2">Вт</label><label><input type="checkbox" name="weekday" value="3">Ср</label><label><input type="checkbox" name="weekday" value="4" checked>Чт</label><label><input type="checkbox" name="weekday" value="5">Пт</label><label><input type="checkbox" name="weekday" value="6">Сб</label><label><input type="checkbox" name="weekday" value="0">Вс</label>
+        </div><div class="form-grid">
+          <label>Вес грифа, кг<input name="bar" type="number" min="5" max="25" step="0.5" value="20" required></label>
+          <label>Минимальный шаг всей штанги<select name="step"><option value="2.5">2,5 кг</option><option value="1">1 кг</option><option value="1.25">1,25 кг</option><option value="5">5 кг</option></select></label>
+          <label>Для вспомогательных упражнений<select name="equipment"><option value="gym">Блоки и гантели</option><option value="dumbbells">Только гантели</option><option value="none">Только штанга — без дополнений</option></select></label>
+          <label>Боль при жиме / ограничения врача<select name="pain"><option value="no">Нет</option><option value="yes">Есть</option></select></label>
+        </div>
+      </fieldset>
+      <p id="generator-error" class="error" role="alert"></p><button type="submit" class="primary">Рассчитать и посмотреть</button>
+    </form>
+    <section id="preview" hidden aria-live="polite"><h3>Предварительный расчёт</h3><p id="preview-summary"></p><ul id="preview-warnings"></ul><p id="preview-first"></p><p class="muted">Сохранится отдельная программа с этими датами. Предыдущие планы и их результаты останутся в списке.</p><button id="save-plan" type="button" class="primary">Сохранить программу</button></section>
+  </dialog>
+  <dialog id="data-dialog" aria-labelledby="data-title"><div class="dialog-heading"><h2 id="data-title">Мои данные</h2><button type="button" data-close>Закрыть</button></div><p>Планы и результаты хранятся в MGym на этом устройстве. Через неделю откроется тот же календарь. Пропущенные тренировки не переносятся автоматически.</p><p>Удаление приложения или его данных удалит программы. Сохраните отдельную копию программ. Этот JSON совместим с сайтом: перенос выполняется через файл, автоматической синхронизации нет. Прежние записи из MGym 0.2.6 доступны кнопкой «Прежний план и записи». Копия дневника в настройках не включает программы генератора.</p><div class="actions"><button id="export-data" type="button">Скачать резервную копию</button><button type="button" id="native-import">Загрузить копию</button><input id="import-data" type="file" hidden></div><p id="data-message" role="status"></p><div id="import-preview" hidden><p id="import-summary"></p><button id="confirm-import" type="button" class="primary">Добавить планы из копии</button></div></dialog>
+  <dialog id="log-dialog" aria-labelledby="log-title"><div class="dialog-heading"><h2 id="log-title">Результат тренировки</h2><button type="button" data-close>Закрыть</button></div><form id="log-form"><p class="muted">Заполняйте только сделанные подходы. Пустое поле — нет записи. Килограммы указаны как общий вес; для гантели — вес одной гантели.</p><div id="log-sets"></div><div class="form-grid"><label>Статус<select name="status"><option value="planned">Ещё не завершена</option><option value="done">Выполнена</option><option value="skipped">Пропущена</option></select></label><label>Как прошла тренировка<select name="feedback"><option value="ok">Нормально</option><option value="hard">Тяжелее ожидаемого / недовосстановился</option><option value="pain">Была боль</option></select></label></div><p id="log-advice" class="muted"></p><p id="log-error" class="error" role="alert"></p><button class="primary" type="submit">Сохранить результат</button></form></dialog>
+  <dialog id="review-dialog" aria-labelledby="review-title"><div class="dialog-heading"><h2 id="review-title">Проверка нагрузки</h2><button type="button" data-close>Закрыть</button></div><p id="review-message"></p><p class="muted">Меняются только будущие незаписанные тренировки. Расписание, прошедшие дни и фактические подходы сохраняются. Повторно одна тренировка не учитывается.</p><button id="apply-review" type="button" class="primary" hidden>Применить поправку к будущим весам</button></dialog>
+</body>
+</html>
