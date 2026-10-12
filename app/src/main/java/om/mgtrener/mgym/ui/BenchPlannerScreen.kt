@@ -103,7 +103,7 @@ fun BenchPlannerScreen(onBack: () -> Unit) {
     BackHandler { if (legacy) legacy = false else goBack() }
     if (legacy) {
         Bench150Screen { legacy = false }
-    } else Column(Modifier.fillMaxSize()) {
+    } else Column(Modifier.fillMaxSize().imePadding()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(onClick = goBack) { Text("← Назад") }
             TextButton(onClick = { legacy = true }) { Text("Прежний план и записи") }
