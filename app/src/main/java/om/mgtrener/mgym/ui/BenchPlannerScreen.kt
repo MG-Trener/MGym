@@ -34,7 +34,7 @@ internal object BenchPlannerAssets {
     const val ROOT = "https://$HOST/bench/"
     const val HOME = ROOT + "index.html"
     private val files = setOf("index.html", "method.html", "style.css", "mobile.css", "app.js", "planner.js",
-        "generator.js", "engine-v2.js", "engine-v3.js", "mobile.js", "plan.json") + listOf("cable-row", "dumbbell-row",
+        "i18n.js", "i18n-catalog.js", "generator.js", "engine-v2.js", "engine-v3.js", "mobile.js", "plan.json") + listOf("cable-row", "dumbbell-row",
         "lat-pulldown", "overhead-triceps-extension", "rear-delt-fly", "triceps-pushdown").map { "assets/$it.webp" } + listOf("leg-curl", "split-squat", "hip-thrust").map { "assets/$it.png" }
     fun path(uri: Uri): String? = uri.path?.removePrefix("/bench/")?.takeIf {
         uri.scheme == "https" && uri.host == HOST && uri.port == -1 && uri.userInfo == null &&
@@ -106,8 +106,8 @@ fun BenchPlannerScreen(discipline: Exercise = Exercise.BENCH, onBack: () -> Unit
         Bench150Screen { legacy = false }
     } else Column(Modifier.fillMaxSize().imePadding()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onClick = goBack) { Text("← Назад") }
-            if(discipline==Exercise.BENCH) TextButton(onClick = { legacy = true }) { Text("Прежний план и записи") }
+            TextButton(onClick = goBack) { LocalizedText("← Назад") }
+            if(discipline==Exercise.BENCH) TextButton(onClick = { legacy = true }) { LocalizedText("Прежний план и записи") }
         }
         AndroidView(modifier = Modifier.fillMaxWidth().weight(1f), factory = { ctx ->
             WebView(ctx).apply {
@@ -144,6 +144,6 @@ fun BenchPlannerScreen(discipline: Exercise = Exercise.BENCH, onBack: () -> Unit
             }
         }, onRelease = { view -> view.stopLoading(); view.removeJavascriptInterface("MGymNative"); view.destroy(); if (web === view) web = null })
     }
-    message?.let { text -> AlertDialog(onDismissRequest = { message = null }, title = { Text("Планы тренировок") },
-        text = { Text(text) }, confirmButton = { TextButton(onClick = { message = null }) { Text("Понятно") } }) }
+    message?.let { text -> AlertDialog(onDismissRequest = { message = null }, title = { LocalizedText("Планы тренировок") },
+        text = { LocalizedText(text) }, confirmButton = { TextButton(onClick = { message = null }) { LocalizedText("Понятно") } }) }
 }

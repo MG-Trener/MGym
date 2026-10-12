@@ -71,7 +71,7 @@ window.Planner=(()=>{
   function upgradeLibrary(){
     if(broken||!state.plans.some(p=>!['bench-natural-3','strength-natural-4'].includes(p.algorithm)))return;
     try{
-      const next={...state,plans:state.plans.map(p=>G.upgrade(p,state.logs,localToday()))};next={...next,plans:G.coordinate(next.plans,next.logs,localToday(),next.current)};G.validateState(next);
+      let next={...state,plans:state.plans.map(p=>G.upgrade(p,state.logs,localToday()))};next={...next,plans:G.coordinate(next.plans,next.logs,localToday(),next.current)};G.validateState(next);
       if(!window.MGymStorage.getItem(BACKUP))window.MGymStorage.setItem(BACKUP,JSON.stringify(state));
       if(persist(next))status('Расчёт исправлен · даты и записанные подходы сохранены');
     }catch(e){status('Не удалось обновить старый расчёт: '+e.message,true);}

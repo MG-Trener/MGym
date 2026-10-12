@@ -39,7 +39,7 @@ fun GymNavigation(selected: Int, select: (Int) -> Unit) {
                                 else -> { line(3f,6f,21f,6f); line(3f,12f,21f,12f); line(3f,18f,21f,18f); drawCircle(color,2.3f*u,Offset(8*u,6*u)); drawCircle(color,2.3f*u,Offset(16*u,12*u)); drawCircle(color,2.3f*u,Offset(10*u,18*u)) }
                             }
                         }
-                        Text(label, style = MaterialTheme.typography.labelSmall, color = color, maxLines = 1)
+                        LocalizedText(label, style = MaterialTheme.typography.labelSmall, color = color, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
                 }
             }

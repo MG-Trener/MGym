@@ -1,0 +1,16 @@
+const fs=require('node:fs'),path=require('node:path');
+const root=path.resolve(__dirname,'..'),dest=path.join(root,'app/src/main/assets/bench-planner');
+const scripts='<script src="i18n-catalog.js" defer></script><script src="i18n.js" defer></script>';
+const index=path.join(dest,'index.html');let html=fs.readFileSync(index,'utf8');
+if(!html.includes('src="i18n.js"'))html=html.replace('<script src="generator.js',scripts+'\n  <script src="generator.js');
+html=html.replaceAll('href="privacy.html"','href="https://mgym.mg-trener.com/privacy.html"').replaceAll('href="support.html"','href="https://mgym.mg-trener.com/support.html"');
+html=html.replaceAll("https://mg-trener.github.io/Gym-150/","https://mgym.mg-trener.com/");
+fs.writeFileSync(index,html);
+fs.copyFileSync(path.join(root,'localization/method.html'),path.join(dest,'method.html'));
+const app=path.join(dest,'app.js');let js=fs.readFileSync(app,'utf8');
+js=js.replace("const months=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];","const months=Array.from({length:12},(_,m)=>new Intl.DateTimeFormat(window.MGymI18n?.tag||'ru',{month:'short',timeZone:'UTC'}).format(new Date(Date.UTC(2026,m,1))));");
+js=js.replace(/^const months=.*;$/m,"const months=window.MGymI18n.months;");
+js=js.replace(/^const fullDate=.*;$/m,"const fullDate=s=>window.MGymI18n.date(s);");
+js=js.replace(/^const weight=.*;$/m,"const weight=n=>n==null?'по самочувствию':new Intl.NumberFormat(window.MGymI18n.tag,{maximumFractionDigits:2}).format(n)+' '+window.MGymI18n.text('кг');");
+fs.writeFileSync(app,js);
+require('./build-locales.cjs');

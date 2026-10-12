@@ -54,6 +54,13 @@ class BenchPlannerTest {
         bitmap.recycle()
     }
     private fun tapWeb(scenario: ActivityScenario<MainActivity>, selector: String) {
+        // Dialog contents scroll independently; a physical tap needs the control in view.
+        js(scenario,"document.querySelector(${JSONObject.quote(selector)}).scrollIntoView({block:'center',behavior:'instant'})")
+        val painted=CountDownLatch(1)
+        scenario.onActivity { a -> requireNotNull(find(a.window.decorView)).postVisualStateCallback(2L,object: WebView.VisualStateCallback(){
+            override fun onComplete(requestId: Long) { painted.countDown() }
+        }) }
+        check(painted.await(10,TimeUnit.SECONDS))
         val coordinates=JSONObject(js(scenario,"(()=>{const r=document.querySelector(${JSONObject.quote(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,width:innerWidth};})()"))
         onView(isAssignableFrom(WebView::class.java)).perform(GeneralClickAction(Tap.SINGLE, { view ->
             val location=IntArray(2);view.getLocationOnScreen(location)
@@ -89,7 +96,8 @@ class BenchPlannerTest {
             js(scenario,"[...document.querySelectorAll('#log-form input[name^=kg]')].at(-1).scrollIntoView({block:'center'})")
             compose.waitUntil(10000) { js(scenario,"(()=>{const e=[...document.querySelectorAll('#log-form input[name^=kg]')].at(-1).getBoundingClientRect(),b=document.querySelector('#log-dialog .mobile-dialog-body').getBoundingClientRect();return e.top>=b.top&&e.bottom<=b.bottom;})()") == "true" }
             tapWeb(scenario,"#log-dialog button[form=log-form]")
-            compose.waitUntil(10000) { js(scenario,"document.querySelector('#log-dialog').open") == "false" }
+            try { compose.waitUntil(10000) { js(scenario,"document.querySelector('#log-dialog').open") == "false" } }
+            catch(e:Exception) { capture(scenario,"bench-save-failed.png");throw AssertionError(js(scenario,"JSON.stringify({error:document.querySelector('#log-error').textContent,active:document.activeElement.outerHTML,invalid:[...document.querySelectorAll('#log-form :invalid')].map(e=>e.outerHTML)})"),e) }
             val state=JSONObject(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!)
             assertEquals(20.0,state.getJSONObject("logs").getJSONObject("original|2026-10-12").getJSONArray("sets").getJSONObject(0).getDouble("kg"),0.0)
             scenario.recreate();ready(scenario)

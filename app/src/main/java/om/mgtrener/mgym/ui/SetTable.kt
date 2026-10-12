@@ -65,7 +65,7 @@ fun SetTable(sets: List<LiftSet>, modifier: Modifier = Modifier, enabled: Boolea
                 Row(Modifier.fillMaxWidth().heightIn(min = 34.dp), verticalAlignment = Alignment.CenterVertically) {
                     if(reorder != null) Box(Modifier.width(32.dp).height(36.dp)
                         .semantics {
-                            contentDescription="Переместить подход ${index+1}"
+                            contentDescription=om.mgtrener.mgym.i18n.Language.text("Переместить подход ${index+1}")
                             customActions = listOf(
                                 CustomAccessibilityAction("Выше") {
                                     if(index>0 && enabled) { onReorder?.invoke(ordered.toMutableList().apply { add(index-1,removeAt(index)) }.map { it.id }); true } else false
@@ -85,34 +85,34 @@ fun SetTable(sets: List<LiftSet>, modifier: Modifier = Modifier, enabled: Boolea
                                     if(ordered.map { it.id } != sets.map { it.id }) onReorder?.invoke(ordered.map { it.id })
                                     dragging=null
                                 })
-                        }, contentAlignment=Alignment.Center) { Text("≡",color=MaterialTheme.colorScheme.onSurfaceVariant) }
-                    Text("${index+1}",Modifier.width(24.dp), style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        }, contentAlignment=Alignment.Center) { LocalizedText("≡",color=MaterialTheme.colorScheme.onSurfaceVariant) }
+                    LocalizedText("${index+1}",Modifier.width(24.dp), style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     if(edit != null) Row(Modifier.weight(1f).padding(vertical=3.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         Surface(onClick={edit(s)},enabled=enabled,shape=MaterialTheme.shapes.small,modifier=Modifier.weight(1f),color=MaterialTheme.colorScheme.background) {
-                            Text(number(s.weight),Modifier.padding(10.dp),style=MaterialTheme.typography.titleSmall)
+                            LocalizedText(number(s.weight),Modifier.padding(10.dp),style=MaterialTheme.typography.titleSmall)
                         }
                         Surface(onClick={edit(s)},enabled=enabled,shape=MaterialTheme.shapes.small,modifier=Modifier.weight(1f),color=MaterialTheme.colorScheme.background) {
-                            Text(s.reps.toString(),Modifier.padding(10.dp),style=MaterialTheme.typography.titleSmall)
+                            LocalizedText(s.reps.toString(),Modifier.padding(10.dp),style=MaterialTheme.typography.titleSmall)
                         }
                     } else Row(Modifier.weight(1f).clickable { expanded=!expanded }.padding(vertical=6.dp), verticalAlignment=Alignment.CenterVertically) {
-                        Text("${number(s.weight)} × ${s.reps}",Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
-                        Text(buildList {
+                        LocalizedText("${number(s.weight)} × ${s.reps}",Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
+                        LocalizedText(buildList {
                             s.rir?.let { add("RIR $it") }; s.rpe?.let { add("RPE ${number(it)}") }
                             if(s.comment.isNotBlank()) add("···")
                         }.joinToString(" · "),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     if(edit != null) Box {
                         TextButton(onClick={menu=true},enabled=enabled,modifier=Modifier.width(36.dp).height(36.dp),contentPadding=PaddingValues(0.dp)) {
-                            Text("⋮",color=Lime,modifier=Modifier.semantics { contentDescription="Действия с подходом ${index+1}" })
+                            LocalizedText("⋮",color=Lime,modifier=Modifier.semantics { contentDescription=om.mgtrener.mgym.i18n.Language.text("Действия с подходом ${index+1}") })
                         }
                         DropdownMenu(menu,{menu=false}) {
-                            DropdownMenuItem(text={Text("Изменить")},onClick={menu=false;edit(s)})
-                            duplicate?.let { action -> DropdownMenuItem(text={Text("Повторить")},onClick={menu=false;action(s)}) }
-                            delete?.let { action -> DropdownMenuItem(text={Text("Удалить")},onClick={menu=false;action(s)}) }
+                            DropdownMenuItem(text={LocalizedText("Изменить")},onClick={menu=false;edit(s)})
+                            duplicate?.let { action -> DropdownMenuItem(text={LocalizedText("Повторить")},onClick={menu=false;action(s)}) }
+                            delete?.let { action -> DropdownMenuItem(text={LocalizedText("Удалить")},onClick={menu=false;action(s)}) }
                         }
                     } else Spacer(Modifier.width(8.dp))
                 }
-                if(expanded && s.comment.isNotBlank()) Text(s.comment,Modifier.padding(start=56.dp,end=8.dp,bottom=6.dp),style=MaterialTheme.typography.bodySmall)
+                if(expanded && s.comment.isNotBlank()) androidx.compose.material3.Text(s.comment,Modifier.padding(start=56.dp,end=8.dp,bottom=6.dp),style=MaterialTheme.typography.bodySmall)
                 HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=0.22f))
             }
         }

@@ -14,6 +14,9 @@ for(const dialog of document.querySelectorAll('dialog')){
 }
 const save=document.querySelector('#log-form button[type=submit]');
 save.setAttribute('form','log-form');
+// Keep the focused input/IME stable until click submits the form. Blurring on
+// pointerdown can move the viewport and the footer away from the finger on Android.
+save.addEventListener('pointerdown',event=>event.preventDefault());
 const footer=document.createElement('div');footer.className='mobile-dialog-footer';footer.append(save);
 document.querySelector('#log-dialog').append(footer);
 

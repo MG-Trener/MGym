@@ -64,6 +64,9 @@ object BackgroundUpdates {
         }
     }
 
+    // Store builds remove notification permission and return through enabled() below.
+    // GitHub builds declare it and canNotify() checks the runtime grant before posting.
+    @android.annotation.SuppressLint("NotificationPermission")
     internal fun checked(context: Context, update: UpdateInfo) {
         if (!enabled(context) || !canNotify(context)) return
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
@@ -73,15 +76,16 @@ object BackgroundUpdates {
         val url = update.apkUrl ?: return
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getString(LAST_NOTICE, null) == version) return
+        om.mgtrener.mgym.i18n.Language.load(om.mgtrener.mgym.i18n.Language.wrap(context))
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Обновления MGym", NotificationManager.IMPORTANCE_DEFAULT))
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, om.mgtrener.mgym.i18n.Language.text("Обновления MGym"), NotificationManager.IMPORTANCE_DEFAULT))
         val intent = Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val pending = PendingIntent.getActivity(context, PERIODIC_JOB, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("Доступна MGym $version")
-            .setContentText("Нажми, чтобы скачать обновление")
+            .setContentTitle(om.mgtrener.mgym.i18n.Language.text("Доступна MGym $version"))
+            .setContentText(om.mgtrener.mgym.i18n.Language.text("Нажми, чтобы скачать обновление"))
             .setContentIntent(pending)
             .setAutoCancel(true)
             .build()

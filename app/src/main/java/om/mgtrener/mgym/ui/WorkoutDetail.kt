@@ -28,7 +28,7 @@ fun CopyWorkout(data: GymData,id:Long) {
         val clipboard=context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("Тренировка MGym",WorkoutText.format(data,id)))
         copied=true
-    },contentPadding=PaddingValues(horizontal=8.dp), modifier=Modifier.heightIn(min=36.dp)) { Text(if(copied) "Скопировано" else "Копировать") }
+    },contentPadding=PaddingValues(horizontal=8.dp), modifier=Modifier.heightIn(min=36.dp)) { LocalizedText(if(copied) "Скопировано" else "Копировать") }
 }
 @Composable
 fun WorkoutDetail(
@@ -51,13 +51,13 @@ fun WorkoutDetail(
     Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(if(workout.sourceKey!=null) "ТРЕНИРОВКА ПО ПЛАНУ" else if(isResult) "ТРЕНИРОВКА ЗАВЕРШЕНА" else "Тренировка",style=MaterialTheme.typography.titleMedium)
-                Text(date(workout.startedAt),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                LocalizedText(if(workout.sourceKey!=null) "ТРЕНИРОВКА ПО ПЛАНУ" else if(isResult) "ТРЕНИРОВКА ЗАВЕРШЕНА" else "Тренировка",style=MaterialTheme.typography.titleMedium)
+                LocalizedText(date(workout.startedAt),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
             CopyWorkout(data,id)
         }
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Text(exercise.title,Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
+            LocalizedText(exercise.title,Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
                 if(canEdit) TextButton(
                     onClick={
                         editMode=!editMode
@@ -66,14 +66,14 @@ fun WorkoutDetail(
                     enabled=enabled,
                     contentPadding=PaddingValues(horizontal=8.dp),
                     modifier=Modifier.heightIn(min=36.dp)
-                ) { Text(if(editMode) "Готово" else "Редактировать") }
+                ) { LocalizedText(if(editMode) "Готово" else "Редактировать") }
         }
         if(workout.exercises.size>1) CompactTabs(workout.exercises.map { it.short },workout.exercises.indexOf(exercise)) { exercise=workout.exercises[it] }
-        if(workout.sourceKey!=null) Text("Факт из плана · изменения через «Записать факт»",style=MaterialTheme.typography.labelSmall)
+        if(workout.sourceKey!=null) LocalizedText("Факт из плана · изменения через «Записать факт»",style=MaterialTheme.typography.labelSmall)
         SummaryCard(sets,exercise in trainingExercises)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-            Text("Подходы · ${sets.size}",style=MaterialTheme.typography.labelMedium)
-            Text(
+            LocalizedText("Подходы · ${sets.size}",style=MaterialTheme.typography.labelMedium)
+            LocalizedText(
                 if(workout.sourceKey!=null) "Сохранённый факт" else if(editMode) "Нажми на вес или повторы" else "Удерживай ≡ и перемещай",
                 style=MaterialTheme.typography.labelSmall,
                 color=MaterialTheme.colorScheme.onSurfaceVariant
@@ -92,7 +92,7 @@ fun WorkoutDetail(
                         onClick={adding=true},
                         enabled=enabled,
                         modifier=Modifier.fillMaxWidth().heightIn(min=44.dp)
-                    ) { Text("+ Добавить подход") }
+                    ) { LocalizedText("+ Добавить подход") }
                 }
             } else null
         )
@@ -114,15 +114,15 @@ fun WorkoutDetail(
     removing?.let { set ->
         AlertDialog(
             onDismissRequest={removing=null},
-            title={Text("Удалить подход?")},
-            text={Text("${number(set.weight)} кг × ${set.reps}")},
+            title={LocalizedText("Удалить подход?")},
+            text={LocalizedText("${number(set.weight)} кг × ${set.reps}")},
             confirmButton={
                 TextButton(onClick={
                     delete?.invoke(set)
                     removing=null
-                }) {Text("Удалить")}
+                }) {LocalizedText("Удалить")}
             },
-            dismissButton={TextButton(onClick={removing=null}) {Text("Отмена")}}
+            dismissButton={TextButton(onClick={removing=null}) {LocalizedText("Отмена")}}
         )
     }
 }
@@ -147,18 +147,18 @@ private fun AddCompletedSetDialog(
                 Modifier.padding(12.dp).heightIn(max=600.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement=Arrangement.spacedBy(8.dp)
             ) {
-                Text("Добавить подход",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(vertical=8.dp))
+                LocalizedText("Добавить подход",style=MaterialTheme.typography.titleLarge,modifier=Modifier.padding(vertical=8.dp))
                 SetEditor(draft,true) { draft=it }
-                error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+                error?.let { LocalizedText(it,color=MaterialTheme.colorScheme.error) }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) {
-                    TextButton(onClick=dismiss) { Text("Отмена") }
+                    TextButton(onClick=dismiss) { LocalizedText("Отмена") }
                     Button(
                         onClick={
                             try { save(draft.copy(kind=SetKind.WORK).toSet(workoutId)) }
                             catch(e:IllegalArgumentException) { error=e.message }
                         },
                         shape=RoundedCornerShape(8.dp)
-                    ) { Text("Добавить") }
+                    ) { LocalizedText("Добавить") }
                 }
             }
         }
@@ -173,7 +173,7 @@ fun CompactTabs(labels:List<String>,selected:Int,select:(Int)->Unit) {
             Surface(onClick={select(index)},modifier=Modifier.weight(1f),shape=MaterialTheme.shapes.small,
                 color=color) {
                 Box(Modifier.heightIn(min=36.dp).padding(horizontal=4.dp),contentAlignment=Alignment.Center) {
-                    Text(label,style=MaterialTheme.typography.labelMedium,color=if(index==selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    LocalizedText(label,style=MaterialTheme.typography.labelMedium,color=if(index==selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

@@ -237,11 +237,14 @@ class WorkoutUiTest {
     @Test fun restTimerResetsWithKeyboardOpenAndWhileRunning() {
         check(context.packageName.endsWith(".uitest"))
         context.deleteDatabase("mgym.db")
-        ActivityScenario.launch(MainActivity::class.java).use {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             compose.waitUntil(15000) {compose.onAllNodesWithContentDescription("Начать: Жим штанги лёжа").fetchSemanticsNodes().isNotEmpty()}
             compose.onNodeWithContentDescription("Начать: Жим штанги лёжа").performClick()
             compose.waitUntil(10000) {compose.onAllNodesWithContentDescription("Вес, кг").fetchSemanticsNodes().isNotEmpty()}
             compose.onNodeWithContentDescription("Вес, кг").performTextReplacement("130")
+            // Wait until the soft keyboard has opened and moved the layout before the physical tap.
+            compose.waitUntil(10000) { var visible=false; scenario.onActivity { visible=it.window.decorView.rootWindowInsets?.isVisible(android.view.WindowInsets.Type.ime())==true }; visible }
+            compose.waitForIdle()
             compose.onNodeWithContentDescription("Запустить таймер").performTouchInput { click() }
             compose.waitUntil(5000) {
                 compose.onAllNodesWithContentDescription("Таймер отдыха").fetchSemanticsNodes()

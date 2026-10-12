@@ -15,11 +15,13 @@ import om.mgtrener.mgym.ui.theme.MGymTheme
 import om.mgtrener.mgym.services.BackgroundUpdates
 
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(base: android.content.Context) { super.attachBaseContext(om.mgtrener.mgym.i18n.Language.wrap(base)) }
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         if (it) BackgroundUpdates.schedule(this)
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        om.mgtrener.mgym.i18n.Language.load(this)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
