@@ -44,7 +44,7 @@ fun SettingsScreen(model: GymViewModel) {
     }
     Panel {
         Text("Путь к 150 кг", style = MaterialTheme.typography.titleLarge)
-        Text("Полный календарь подготовки и таблицы подходов доступны также на сайте.")
+        Text("Генератор работает внутри приложения без интернета. Программу с сайта можно перенести через «Путь к 150 кг → Мои данные → Загрузить копию».")
         OutlinedButton(onClick = {
             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, "https://mg-trener.github.io/Gym-150/".toUri())) }
                 .onFailure { model.notify("Не удалось открыть сайт в браузере") }
@@ -52,7 +52,7 @@ fun SettingsScreen(model: GymViewModel) {
     }
     Panel {
         Text("Резервная копия", style = MaterialTheme.typography.titleLarge)
-        Text("JSON сохраняет тренировки, подходы, текущий ввод и настройки звука и вибрации. CSV предназначен для таблиц.")
+        Text("JSON сохраняет дневник, текущий ввод и настройки. Для программ генератора используйте отдельную копию: «Путь к 150 кг → Мои данные». CSV предназначен для таблиц.")
         OutlinedButton(onClick = { exportJson.launch("MGym-backup.json") }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Сохранить JSON / backup") }
         OutlinedButton(onClick = { exportCsv.launch("MGym-sets.csv") }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Экспорт CSV") }
         OutlinedButton(onClick = { importJson.launch(arrayOf("application/json","text/plain","application/octet-stream")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Восстановить из JSON") }
@@ -111,4 +111,3 @@ fun SettingsScreen(model: GymViewModel) {
             dismissButton = { TextButton(onClick = model::cancelImport) { Text("Отмена") } })
     }
 }
-

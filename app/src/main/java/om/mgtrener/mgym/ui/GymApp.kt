@@ -41,10 +41,10 @@ fun GymApp(model: GymViewModel) {
                     CircularProgressIndicator()
                     Text("Открываем локальный дневник…")
                 }
-            } else Column(Modifier.weight(1f).then(if(fixedScreen) Modifier else Modifier.verticalScroll(contentScroll)).padding(12.dp),
+            } else Column(Modifier.weight(1f).then(if(fixedScreen) Modifier else Modifier.verticalScroll(contentScroll)).padding(if(planOpen) 0.dp else 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when {
-                    planOpen -> Bench150Screen { planOpen = false }
+                    planOpen -> BenchPlannerScreen { planOpen = false }
                     result != null -> {
                         TextButton(onClick = { model.closeResult() }) { Text("← Сегодня") }
                         WorkoutDetail(model.data, result, true, model::reorder, !model.busy, model::saveCompleted, model::removeCompleted)
@@ -74,4 +74,3 @@ fun GymApp(model: GymViewModel) {
             text = { Text(message) }, confirmButton = { TextButton(onClick = { model.dismissMessage() }) { Text("Понятно") } })
     }
 }
-
