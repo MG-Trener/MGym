@@ -14,8 +14,8 @@ android {
             "om.mgtrener.mgym.uitest" else "om.mgtrener.mgym"
         minSdk = 30
         targetSdk = 37
-        versionCode = 14
-        versionName = "0.4.0"
+        versionCode = 15
+        versionName = "0.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -46,6 +46,8 @@ android {
         compose = true
         buildConfig = true
     }
+    // The in-app language picker must work offline, including Material's translated controls.
+    bundle { language { enableSplit = false } }
 }
 
 dependencies {

@@ -52,32 +52,32 @@ fun ProgressScreen(data: GymData, exerciseIndex: Int = 0, onDiscipline: (Int) ->
     var record by remember(records) {mutableIntStateOf(0)}
     Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(7.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
-            Text("Прогресс",style=MaterialTheme.typography.titleLarge)
+            LocalizedText("Прогресс",style=MaterialTheme.typography.titleLarge)
             Box {
-                TextButton(onClick={periodsOpen=true},contentPadding=PaddingValues(horizontal=4.dp)) {Text(periods[period]+" ⌄")}
+                TextButton(onClick={periodsOpen=true},contentPadding=PaddingValues(horizontal=4.dp)) {LocalizedText(periods[period]+" ⌄")}
                 DropdownMenu(periodsOpen,{periodsOpen=false}) {periods.forEachIndexed {i,label ->
-                    DropdownMenuItem(text={Text(label)},onClick={period=i;periodsOpen=false})
+                    DropdownMenuItem(text={LocalizedText(label)},onClick={period=i;periodsOpen=false})
                 }}
             }
         }
         CompactTabs(trainingExercises.map { it.short },exerciseIndex,onDiscipline)
         CompactTabs(listOf("Все","По плану","Самостоятельно"),source) {source=it}
-        Text("${workouts.size} занятий · ${exercise.title}. Только фактические подходы.",style=MaterialTheme.typography.labelSmall)
+        LocalizedText("${workouts.size} занятий · ${exercise.title}. Только фактические подходы.",style=MaterialTheme.typography.labelSmall)
         CompactTabs(listOf("График","Рекорды"),view) {view=it}
-        Text(if(metric==4) "Средний RPE рабочих подходов с оценкой; пропуски не считаются нулём." else "e1RM — оценка по весу и повторам, не база генератора и не подтверждённый максимум.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        LocalizedText(if(metric==4) "Средний RPE рабочих подходов с оценкой; пропуски не считаются нулём." else "e1RM — оценка по весу и повторам, не база генератора и не подтверждённый максимум.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         if(view==0) {
             CompactTabs(listOf("e1RM","Вес","Объём","Повт.","RPE"),metric) {metric=it}
             if(points.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(),contentAlignment=Alignment.Center) {
-                Text("Здесь появится твой прогресс.\nДобавь подходы и заверши тренировку.",style=MaterialTheme.typography.bodyMedium,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                LocalizedText("Здесь появится твой прогресс.\nДобавь подходы и заверши тренировку.",style=MaterialTheme.typography.bodyMedium,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
             } else {
                 val p=points[selected.coerceAtMost(points.lastIndex)]
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("${number(p.second)} ${if(metric==3) "повт." else if(metric==4) "RPE" else "кг"}",style=MaterialTheme.typography.headlineMedium)
-                        Text(date(p.first.startedAt),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        LocalizedText("${number(p.second)} ${if(metric==3) "повт." else if(metric==4) "RPE" else "кг"}",style=MaterialTheme.typography.headlineMedium)
+                        LocalizedText(date(p.first.startedAt),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     val delta=points.last().second-points.first().second
-                    Text("${if(delta>=0) "+" else ""}${number(delta)} за период",style=MaterialTheme.typography.labelSmall,color=Lime)
+                    LocalizedText("${if(delta>=0) "+" else ""}${number(delta)} за период",style=MaterialTheme.typography.labelSmall,color=Lime)
                 }
                 val xs=remember(points) {
                     val start=points.first().first.startedAt
@@ -89,9 +89,9 @@ fun ProgressScreen(data: GymData, exerciseIndex: Int = 0, onDiscipline: (Int) ->
                     selected=xs.indices.minByOrNull {abs(xs[it]-f)} ?: 0
                 }
                 Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)) {
-                    Text(number(points.maxOf {it.second}),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    LocalizedText(number(points.maxOf {it.second}),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     Canvas(Modifier.fillMaxWidth().weight(1f)
-                        .semantics {contentDescription="График прогресса";stateDescription="${date(p.first.startedAt)}: ${number(p.second)}"}
+                        .semantics {contentDescription=om.mgtrener.mgym.i18n.Language.text("График прогресса");stateDescription="${date(p.first.startedAt)}: ${number(p.second)}"}
                         .pointerInput(points) {detectTapGestures {selectAt(it.x,size.width.toFloat())}}
                         .pointerInput(points) {detectDragGestures {change,_->change.consume();selectAt(change.position.x,size.width.toFloat())}}) {
                         val min=points.minOf {it.second};val max=points.maxOf {it.second}
@@ -106,20 +106,20 @@ fun ProgressScreen(data: GymData, exerciseIndex: Int = 0, onDiscipline: (Int) ->
                         positions.forEachIndexed {i,pos->drawCircle(if(i==selected) Color.White else Lime,if(i==selected) 7f else 3f,pos)}
                     }
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                        Text(day(points.first().first.startedAt).toString(),style=MaterialTheme.typography.labelSmall)
-                        Text(day(points.last().first.startedAt).toString(),style=MaterialTheme.typography.labelSmall)
+                        LocalizedText(day(points.first().first.startedAt).toString(),style=MaterialTheme.typography.labelSmall)
+                        LocalizedText(day(points.last().first.startedAt).toString(),style=MaterialTheme.typography.labelSmall)
                     }
                 }
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                    TextButton(onClick={selected--},enabled=selected>0,contentPadding=PaddingValues(0.dp),modifier=Modifier.width(40.dp)) {Text("←")}
-                    Text(if(metric==0) p.third?.let {"Подход: ${number(it.weight)} × ${it.reps}"} ?: "—" else "Тренировка ${selected+1} из ${points.size}",
+                    TextButton(onClick={selected--},enabled=selected>0,contentPadding=PaddingValues(0.dp),modifier=Modifier.width(40.dp)) {LocalizedText("←")}
+                    LocalizedText(if(metric==0) p.third?.let {"Подход: ${number(it.weight)} × ${it.reps}"} ?: "—" else "Тренировка ${selected+1} из ${points.size}",
                         Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center,style=MaterialTheme.typography.bodySmall)
-                    TextButton(onClick={selected++},enabled=selected<points.lastIndex,contentPadding=PaddingValues(0.dp),modifier=Modifier.width(40.dp)) {Text("→")}
+                    TextButton(onClick={selected++},enabled=selected<points.lastIndex,contentPadding=PaddingValues(0.dp),modifier=Modifier.width(40.dp)) {LocalizedText("→")}
                 }
             }
         } else {
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                if(records.isEmpty()) Text("Рекорды появятся после первой тренировки.")
+                if(records.isEmpty()) LocalizedText("Рекорды появятся после первой тренировки.")
                 records.chunked(3).forEachIndexed {row,chunk ->
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
                         chunk.forEachIndexed {col,(title,s) ->
@@ -127,9 +127,9 @@ fun ProgressScreen(data: GymData, exerciseIndex: Int = 0, onDiscipline: (Int) ->
                             Surface(onClick={record=index},shape=RoundedCornerShape(8.dp),modifier=Modifier.weight(1f),
                                 color=if(record==index) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface) {
                                 Column(Modifier.padding(8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                                    Text(title.replace("Максимальный вес","Макс. вес").replace("Лучший e1RM","e1RM").replace("Рекорд ",""),
+                                    LocalizedText(title.replace("Максимальный вес","Макс. вес").replace("Лучший e1RM","e1RM").replace("Рекорд ",""),
                                         style=MaterialTheme.typography.labelSmall)
-                                    Text(number(if(title=="Лучший e1RM") Analytics.estimate(s)!!.aggregate else s.weight)+" кг",
+                                    LocalizedText(number(if(title=="Лучший e1RM") Analytics.estimate(s)!!.aggregate else s.weight)+" кг",
                                         style=MaterialTheme.typography.titleSmall,color=Lime)
                                 }
                             }
@@ -138,14 +138,14 @@ fun ProgressScreen(data: GymData, exerciseIndex: Int = 0, onDiscipline: (Int) ->
                     }
                 }
                 records.getOrNull(record)?.second?.let {s ->
-                    Text("${number(s.weight)} кг × ${s.reps} · ${workouts.firstOrNull {it.id==s.workoutId}?.let {date(it.startedAt)} ?: ""}",
+                    LocalizedText("${number(s.weight)} кг × ${s.reps} · ${workouts.firstOrNull {it.id==s.workoutId}?.let {date(it.startedAt)} ?: ""}",
                         style=MaterialTheme.typography.bodySmall)
                 }
             }
         }
-        Text("ИТОГО ЗА ПЕРИОД · ${summaries.size} тренировок",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        LocalizedText("ИТОГО ЗА ПЕРИОД · ${summaries.size} тренировок",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         SummaryCard(periodSets)
-        Text("e1RM — оценка по 1–12 повторам. Веди пальцем по графику.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        LocalizedText("e1RM — оценка по 1–12 повторам. Веди пальцем по графику.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 @Composable
@@ -153,18 +153,18 @@ fun AchievementsScreen(data: GymData) {
     val trophies=remember(data) {Achievements.evaluate(data)}
     var group by rememberSaveable { mutableIntStateOf(0) }
     SectionTitle("Твои достижения","${trophies.count {it.unlockedAt!=null}} из ${trophies.size} открыто")
-    if(data.completed.isEmpty()) Text("Первый трофей уже близко.")
+    if(data.completed.isEmpty()) LocalizedText("Первый трофей уже близко.")
     CompactTabs(listOf("Путь","Движ.","Ритм","Сила"),group) {group=it}
     val selected=trophies.filter {it.group==TrophyGroup.entries[group]}
-    Text(TrophyGroup.entries[group].title,style=MaterialTheme.typography.titleMedium)
+    LocalizedText(TrophyGroup.entries[group].title,style=MaterialTheme.typography.titleMedium)
     selected.chunked(2).forEach {row ->
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
             row.forEach {t ->
                 Surface(Modifier.weight(1f),shape=RoundedCornerShape(9.dp),color=MaterialTheme.colorScheme.surface) {
                     Column(Modifier.padding(9.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                        Text("${if(t.unlockedAt!=null) "◆" else "◇"} ${t.title}",color=if(t.unlockedAt!=null) Lime else MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.titleSmall)
-                        Text(t.description,style=MaterialTheme.typography.labelSmall)
-                        Text(t.unlockedAt?.let {date(it)} ?: "Ещё впереди",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        LocalizedText("${if(t.unlockedAt!=null) "◆" else "◇"} ${t.title}",color=if(t.unlockedAt!=null) Lime else MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.titleSmall)
+                        LocalizedText(t.description,style=MaterialTheme.typography.labelSmall)
+                        LocalizedText(t.unlockedAt?.let {date(it)} ?: "Ещё впереди",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

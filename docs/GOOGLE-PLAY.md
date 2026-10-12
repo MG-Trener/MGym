@@ -1,10 +1,10 @@
-# Подготовка MGym 0.4.0 к Google Play
+# Подготовка MGym 0.5.0 к Google Play
 
 ## Статус
 
-Подготовлены release-вариант приложения, Android App Bundle, тексты карточки, графика, политика конфиденциальности и сценарий проверки. Отправка в Play Console не выполнялась. Аккаунт разработчика оформляет владелец. Без upload-подписи и настройки Play App Signing собранный unsigned AAB не является готовым файлом для загрузки.
+Подготовлены release-вариант приложения, Android App Bundle, тексты карточки, графика, политика конфиденциальности и сценарий проверки. Отправка в Play Console не выполнялась. Аккаунт зарегистрирован и оплачен; со слов владельца ожидается проверка личности. Без upload-подписи и настройки Play App Signing собранный unsigned AAB не является готовым файлом для загрузки.
 
-Пакет: `om.mgtrener.mgym`. Версия: 0.4.0 (14). Android 11+, target API 37. Release-вариант отключает GitHub-обновления и их фоновые задачи/уведомления; debug APK остаётся способом обновления прежних установок из GitHub. Не загружайте debug APK в Google Play.
+Пакет: `om.mgtrener.mgym`. Версия: 0.5.0 (15). Android 11+, target API 37. Release-вариант отключает GitHub-обновления и их фоновые задачи/уведомления; debug APK остаётся способом обновления прежних установок из GitHub. Не загружайте debug APK в Google Play.
 
 ## Что нужно сделать владельцу
 
@@ -12,8 +12,8 @@
 2. Выбрать хранение ключа подписи через Play App Signing и создать отдельный upload key. Хранить ключ и резервную копию у владельца, вне Git. Пароли не передавать в чат.
 3. Настроить переменные окружения `MGYM_UPLOAD_STORE` (абсолютный путь), `MGYM_UPLOAD_STORE_PASSWORD`, `MGYM_UPLOAD_ALIAS`, `MGYM_UPLOAD_KEY_PASSWORD` на машине сборки. Затем выполнить из корня репозитория `./gradlew :app:bundleRelease` (Windows: `gradlew.bat`). При отсутствии всех четырёх значений сборка остаётся неподписанной. Результат: `app/build/outputs/bundle/release/app-release.aab`.
 4. Проверить подпись через `jarsigner -verify -verbose -certs`, а сертификат сопоставить с upload key в Console. Не использовать текущий debug-ключ как производственный.
-5. Заполнить карточку из `store/listing-ru.md`, контактный email владельца, категорию Health & Fitness, страны распространения, возрастную аудиторию и анкеты. Email пока не задан: его нельзя заменять вымышленным адресом.
-6. Указать политику: https://mg-trener.github.io/Gym-150/privacy.html и поддержку: https://mg-trener.github.io/Gym-150/support.html. Проверить доступность обеих страниц без входа.
+5. Заполнить карточку из `store/listing-ru.md и store/listing-en.md`, контактный email владельца, категорию Health & Fitness, страны распространения, возрастную аудиторию и анкеты. Email пока не задан: его нельзя заменять вымышленным адресом.
+6. Указать политику: https://mgym.mg-trener.com/privacy.html и поддержку: https://mgym.mg-trener.com/support.html. Проверить доступность обеих страниц без входа.
 7. Пройти внутренний тест, затем требуемый аккаунтом закрытый тест. Для новых личных аккаунтов Google требует минимум 12 участников непрерывно 14 дней; после этого отдельно запрашивается доступ к production. Наличие тестеров и одобрение не обеспечиваются сборкой.
 8. Проверить pre-launch report, работу на Android 11 и актуальной Android, большие шрифты, TalkBack, импорт/экспорт, обновление поверх предыдущего подписанного выпуска, отсутствие потери истории.
 9. После проверки подать выпуск на модерацию. Одобрение магазина не гарантируется.
@@ -37,10 +37,13 @@ GitHub APK подписан прежним локальным debug-сертиф
 
 ## Официальные источники
 
-Проверены 12.10.2026; перед отправкой сверить актуальные требования Console:
+Проверены 13.10.2026; перед отправкой сверить актуальные требования Console:
 
 - [Подпись и Play App Signing](https://developer.android.com/studio/publish/app-signing)
 - [Тестирование новых личных аккаунтов](https://support.google.com/googleplay/android-developer/answer/14151465)
 - [Health Content and Services](https://support.google.com/googleplay/android-developer/answer/16679511)
 - [Целевой API](https://support.google.com/googleplay/android-developer/answer/11926878)
 - [Изображения и скриншоты карточки](https://support.google.com/googleplay/android-developer/answer/9866151)
+
+
+[Результаты проверки по 24 пунктам](PREPUBLICATION-0.5.0.md). Для контроля сбоев после первого выпуска проверить [Android vitals](https://developer.android.com/google/play/vitals) и включить оповещения в Console. Сторонний crash-reporting SDK не добавлен.

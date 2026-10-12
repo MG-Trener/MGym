@@ -26,7 +26,7 @@ import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
 
-private val ru = Locale.forLanguageTag("ru")
+private val ru get() = om.mgtrener.mgym.i18n.Language.locale
 @Composable
 fun CalendarScreen(model: GymViewModel, disciplineIndex: Int = 0, onDiscipline: (Int) -> Unit = {}) {
     val exercise=trainingExercises[disciplineIndex]
@@ -43,19 +43,19 @@ fun CalendarScreen(model: GymViewModel, disciplineIndex: Int = 0, onDiscipline: 
     Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(6.dp)) {
         CompactTabs(trainingExercises.map {it.short},disciplineIndex,onDiscipline)
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Text("Календарь",style=MaterialTheme.typography.titleLarge,modifier=Modifier.weight(1f))
+            LocalizedText("Календарь",style=MaterialTheme.typography.titleLarge,modifier=Modifier.weight(1f))
             Row(Modifier.width(150.dp)) { CompactTabs(listOf("Год","Месяц"),mode) {mode=it} }
         }
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
             TextButton(onClick={
                 if(mode==0) year-- else ym.minusMonths(1).let {year=it.year;month=it.monthValue}
-            },enabled=if(mode==0) year>1970 else ym>YearMonth.of(1970,1)) {Text("←")}
-            Text(if(mode==0) "$year" else "${ym.month.getDisplayName(TextStyle.FULL_STANDALONE,ru)} $year",style=MaterialTheme.typography.titleMedium)
+            },enabled=if(mode==0) year>1970 else ym>YearMonth.of(1970,1)) {LocalizedText("←")}
+            LocalizedText(if(mode==0) "$year" else "${ym.month.getDisplayName(TextStyle.FULL_STANDALONE,ru)} $year",style=MaterialTheme.typography.titleMedium)
             TextButton(onClick={
                 if(mode==0) year++ else ym.plusMonths(1).let {year=it.year;month=it.monthValue}
-            },enabled=if(mode==0) year<2099 else ym<YearMonth.of(2099,12)) {Text("→")}
+            },enabled=if(mode==0) year<2099 else ym<YearMonth.of(2099,12)) {LocalizedText("→")}
         }
-        Text("${workouts.size} тренировок · ${exercise.title}",
+        LocalizedText("${workouts.size} тренировок · ${exercise.title}",
             style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         if(mode==0) {
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)) {
@@ -68,12 +68,12 @@ fun CalendarScreen(model: GymViewModel, disciplineIndex: Int = 0, onDiscipline: 
                     }
                 }
             }
-            Text("Нажми месяц · ● — день тренировки",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            LocalizedText("Нажми месяц · ● — день тренировки",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             Surface(shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.surface) {
                 Column(Modifier.padding(8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                     Row { listOf("Пн","Вт","Ср","Чт","Пт","Сб","Вс").forEach {
-                        Text(it,Modifier.weight(1f),textAlign=TextAlign.Center,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        LocalizedText(it,Modifier.weight(1f),textAlign=TextAlign.Center,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     } }
                     val offset=ym.atDay(1).dayOfWeek.value-1
                     repeat(6) { week ->
@@ -88,10 +88,10 @@ fun CalendarScreen(model: GymViewModel, disciplineIndex: Int = 0, onDiscipline: 
                                     Column(Modifier.weight(1f).height(46.dp).clip(RoundedCornerShape(8.dp))
                                         .background(if(sessions.isNotEmpty()) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
                                         .clickable {selectedDay=date}
-                                        .semantics {contentDescription="Дата $date, тренировок ${sessions.size}"},
+                                        .semantics {contentDescription=om.mgtrener.mgym.i18n.Language.text("Дата $date, тренировок ${sessions.size}")},
                                         horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
-                                        Text("$d",style=MaterialTheme.typography.titleSmall,color=if(today || sessions.isNotEmpty()) Lime else MaterialTheme.colorScheme.onSurface)
-                                        Text(mark(sessions),style=MaterialTheme.typography.labelSmall,color=Lime)
+                                        LocalizedText("$d",style=MaterialTheme.typography.titleSmall,color=if(today || sessions.isNotEmpty()) Lime else MaterialTheme.colorScheme.onSurface)
+                                        LocalizedText(mark(sessions),style=MaterialTheme.typography.labelSmall,color=Lime)
                                     }
                                 }
                             }
@@ -99,7 +99,7 @@ fun CalendarScreen(model: GymViewModel, disciplineIndex: Int = 0, onDiscipline: 
                     }
                 }
             }
-            Text("Нажми дату, чтобы увидеть и скопировать тренировку.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            LocalizedText("Нажми дату, чтобы увидеть и скопировать тренировку.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     selectedDay?.let { date ->
@@ -113,10 +113,10 @@ fun CalendarScreen(model: GymViewModel, disciplineIndex: Int = 0, onDiscipline: 
             Surface(Modifier.fillMaxWidth().padding(12.dp),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface) {
                 Column(Modifier.height(if(workout==null) 140.dp else height).padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-                        Text(date.toString(),style=MaterialTheme.typography.titleSmall)
-                        TextButton(onClick={selectedDay=null},contentPadding=PaddingValues(0.dp),modifier=Modifier.height(36.dp)) {Text("Закрыть")}
+                        LocalizedText(date.toString(),style=MaterialTheme.typography.titleSmall)
+                        TextButton(onClick={selectedDay=null},contentPadding=PaddingValues(0.dp),modifier=Modifier.height(36.dp)) {LocalizedText("Закрыть")}
                     }
-                    if(workout==null) Text("В этот день тренировок нет",style=MaterialTheme.typography.bodyMedium)
+                    if(workout==null) LocalizedText("В этот день тренировок нет",style=MaterialTheme.typography.bodyMedium)
                     else {
                         if(sessions.size>1) CompactTabs(sessions.map {"${it.exercises.first().short} ${date(it.startedAt).substringAfter("· ")}"},selected) {selected=it}
                         Box(Modifier.weight(1f)) {WorkoutDetail(data,workout.id,reorder=model::reorder,enabled=!model.busy,save=model::saveCompleted,delete=model::removeCompleted)}
@@ -132,17 +132,17 @@ private fun mark(sessions:List<Workout>):String {
 @Composable
 private fun MiniMonth(ym:YearMonth,days:Map<LocalDate,List<Workout>>,modifier:Modifier,open:()->Unit) {
     Column(modifier.clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick=open)
-        .semantics(mergeDescendants=true) {contentDescription="Месяц ${ym.monthValue}, ${ym.year}"}
+        .semantics(mergeDescendants=true) {contentDescription=om.mgtrener.mgym.i18n.Language.text("Месяц ${ym.monthValue}, ${ym.year}")}
         .padding(5.dp)) {
-        Text(ym.month.getDisplayName(TextStyle.SHORT_STANDALONE,ru).uppercase(),fontSize=10.sp,lineHeight=12.sp,color=Lime)
-        Row {listOf("П","В","С","Ч","П","С","В").forEach {Text(it,Modifier.weight(1f),fontSize=8.sp,lineHeight=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+        LocalizedText(ym.month.getDisplayName(TextStyle.SHORT_STANDALONE,ru).uppercase(),fontSize=10.sp,lineHeight=12.sp,color=Lime)
+        Row {java.time.DayOfWeek.entries.map { it.getDisplayName(TextStyle.NARROW, ru) }.forEach {LocalizedText(it,Modifier.weight(1f),fontSize=8.sp,lineHeight=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
         val offset=ym.atDay(1).dayOfWeek.value-1
         repeat(6) {week ->
             Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically) {
                 repeat(7) {weekday ->
                     val d=week*7+weekday-offset+1
                     val sessions=if(d in 1..ym.lengthOfMonth()) days[ym.atDay(d)].orEmpty() else emptyList()
-                    Text(if(d !in 1..ym.lengthOfMonth()) " " else mark(sessions).ifEmpty {d.toString()},
+                    LocalizedText(if(d !in 1..ym.lengthOfMonth()) " " else mark(sessions).ifEmpty {d.toString()},
                         Modifier.weight(1f),fontSize=9.sp,lineHeight=11.sp,color=if(sessions.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else Lime)
                 }
             }

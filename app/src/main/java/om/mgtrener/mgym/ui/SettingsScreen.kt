@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 fun SettingsScreen(model: GymViewModel) {
     val context=LocalContext.current
     var delete by remember { mutableStateOf(false) }
+    var licenses by remember { mutableStateOf(false) }
     var automaticUpdates by remember { mutableStateOf(BackgroundUpdates.enabled(context)) }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) BackgroundUpdates.schedule(context)
@@ -30,71 +31,93 @@ fun SettingsScreen(model: GymViewModel) {
     val importJson = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(model::inspect) }
     SectionTitle("Настройки", "Твой дневник. Твои данные.")
     Panel {
-        Text("Во время тренировки", style = MaterialTheme.typography.titleLarge)
+        LocalizedText("Язык приложения", style = MaterialTheme.typography.titleLarge)
+        var expanded by remember { mutableStateOf(false) }
+        val selection = om.mgtrener.mgym.i18n.Language.selected(context)
+        val names = om.mgtrener.mgym.i18n.Language.names
+        val tags = om.mgtrener.mgym.i18n.Language.tags
+        Box {
+            OutlinedButton(onClick={expanded=true},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
+                LocalizedText(if(selection=="system") "Как в системе" else names[tags.indexOf(selection)])
+            }
+            DropdownMenu(expanded=expanded,onDismissRequest={expanded=false}) {
+                (listOf("system")+tags).forEach { tag ->
+                    DropdownMenuItem(text={LocalizedText(if(tag=="system") "Как в системе" else names[tags.indexOf(tag)])},onClick={
+                        expanded=false
+                        om.mgtrener.mgym.i18n.Language.choose(context,tag)
+                        if(android.os.Build.VERSION.SDK_INT < 33) (context as? android.app.Activity)?.recreate()
+                    })
+                }
+            }
+        }
+    }
+    Panel {
+        LocalizedText("Во время тренировки", style = MaterialTheme.typography.titleLarge)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Тактильный отклик", Modifier.padding(top = 12.dp))
-            Switch(modifier=Modifier.semantics {contentDescription="Вибрация действий"}, checked = model.haptics, onCheckedChange = model::toggleHaptics, enabled = !model.busy)
+            LocalizedText("Тактильный отклик", Modifier.padding(top = 12.dp))
+            Switch(modifier=Modifier.semantics {contentDescription=om.mgtrener.mgym.i18n.Language.text("Вибрация действий")}, checked = model.haptics, onCheckedChange = model::toggleHaptics, enabled = !model.busy)
         }
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-            Text("Звуковые эффекты",Modifier.padding(top=12.dp))
-            Switch(model.sounds,model::toggleSounds,enabled=!model.busy,modifier=Modifier.semantics {contentDescription="Звук действий"})
+            LocalizedText("Звуковые эффекты",Modifier.padding(top=12.dp))
+            Switch(model.sounds,model::toggleSounds,enabled=!model.busy,modifier=Modifier.semantics {contentDescription=om.mgtrener.mgym.i18n.Language.text("Звук действий")})
         }
-        Text("Короткий сигнал при добавлении, переносе и завершении. В беззвучном режиме звук выключен.",style=MaterialTheme.typography.bodySmall)
-        Text("Единицы: кг · тема: графит", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LocalizedText("Короткий сигнал при добавлении, переносе и завершении. В беззвучном режиме звук выключен.",style=MaterialTheme.typography.bodySmall)
+        LocalizedText("Единицы: кг · тема: графит", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     Panel {
-        Text("Планы тренировок", style = MaterialTheme.typography.titleLarge)
-        Text("Генератор работает внутри приложения без интернета. Программу с сайта можно перенести через «Планы тренировок → Мои данные → Загрузить копию».")
+        LocalizedText("Планы тренировок", style = MaterialTheme.typography.titleLarge)
+        LocalizedText("Генератор работает внутри приложения без интернета. Программу с сайта можно перенести через «Планы тренировок → Мои данные → Загрузить копию».")
         OutlinedButton(onClick = {
-            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, "https://mg-trener.github.io/Gym-150/".toUri())) }
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, "https://mgym.mg-trener.com/".toUri())) }
                 .onFailure { model.notify("Не удалось открыть сайт в браузере") }
-        }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Открыть сайт подготовки ↗") }
+        }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { LocalizedText("Открыть сайт подготовки ↗") }
     }
     Panel {
-        Text("Резервная копия", style = MaterialTheme.typography.titleLarge)
-        Text("JSON сохраняет дневник, текущий ввод и настройки. Для программ генератора используйте отдельную копию: «Планы тренировок → Мои данные». CSV предназначен для таблиц.")
-        OutlinedButton(onClick = { exportJson.launch("MGym-backup.json") }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Сохранить JSON / backup") }
-        OutlinedButton(onClick = { exportCsv.launch("MGym-sets.csv") }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Экспорт CSV") }
-        OutlinedButton(onClick = { importJson.launch(arrayOf("application/json","text/plain","application/octet-stream")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Восстановить из JSON") }
-        Text("Файл выбираешь ты. Можно сохранить его на устройство или в выбранное тобой хранилище.", style = MaterialTheme.typography.bodySmall)
+        LocalizedText("Резервная копия", style = MaterialTheme.typography.titleLarge)
+        LocalizedText("JSON сохраняет дневник, текущий ввод и настройки. Для программ генератора используйте отдельную копию: «Планы тренировок → Мои данные». CSV предназначен для таблиц.")
+        OutlinedButton(onClick = { exportJson.launch("MGym-backup.json") }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { LocalizedText("Сохранить JSON / backup") }
+        OutlinedButton(onClick = { exportCsv.launch("MGym-sets.csv") }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { LocalizedText("Экспорт CSV") }
+        OutlinedButton(onClick = { importJson.launch(arrayOf("application/json","text/plain","application/octet-stream")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { LocalizedText("Восстановить из JSON") }
+        LocalizedText("Файл выбираешь ты. Можно сохранить его на устройство или в выбранное тобой хранилище.", style = MaterialTheme.typography.bodySmall)
     }
     if(!BuildConfig.STORE_DISTRIBUTION) Panel {
-        Text("Обновление приложения", style = MaterialTheme.typography.titleLarge)
-        Text("Версия ${BuildConfig.VERSION_NAME} · жим / тяга / присед")
+        LocalizedText("Обновление приложения", style = MaterialTheme.typography.titleLarge)
+        LocalizedText("Версия ${BuildConfig.VERSION_NAME} · жим / тяга / присед")
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-            Text("Проверять в фоне",Modifier.padding(top=12.dp))
+            LocalizedText("Проверять в фоне",Modifier.padding(top=12.dp))
             Switch(automaticUpdates,{ enabled ->
                 automaticUpdates=enabled
                 BackgroundUpdates.setEnabled(context,enabled)
                 if (enabled && !BackgroundUpdates.canNotify(context))
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            },modifier=Modifier.semantics {contentDescription="Фоновая проверка обновлений"})
+            },modifier=Modifier.semantics {contentDescription=om.mgtrener.mgym.i18n.Language.text("Фоновая проверка обновлений")})
         }
-        Text("Проверяем примерно раз в день при наличии сети. О новой версии сообщим уведомлением. Его нажатие откроет APK для скачивания; установку подтверждает Android.",style=MaterialTheme.typography.bodySmall)
-        OutlinedButton(onClick=model::checkUpdate,enabled=!model.checkingUpdate) {Text(if(model.checkingUpdate) "Проверяем…" else "Проверить обновления")}
+        LocalizedText("Проверяем примерно раз в день при наличии сети. О новой версии сообщим уведомлением. Его нажатие откроет APK для скачивания; установку подтверждает Android.",style=MaterialTheme.typography.bodySmall)
+        OutlinedButton(onClick=model::checkUpdate,enabled=!model.checkingUpdate) {LocalizedText(if(model.checkingUpdate) "Проверяем…" else "Проверить обновления")}
         model.update?.let { update ->
-            Text(update.message,style=MaterialTheme.typography.bodySmall)
+            LocalizedText(update.message,style=MaterialTheme.typography.bodySmall)
             update.apkUrl?.let {url ->
                 Button(onClick={
                     runCatching {context.startActivity(Intent(Intent.ACTION_VIEW,url.toUri()))}
                         .onFailure {model.notify("Не удалось открыть браузер для скачивания APK")}
-                }) {Text("Скачать ${update.available}")}
-                Text("После скачивания открой APK в загрузках. Android может попросить разрешить установку из браузера.",style=MaterialTheme.typography.bodySmall)
+                }) {LocalizedText("Скачать ${update.available}")}
+                LocalizedText("После скачивания открой APK в загрузках. Android может попросить разрешить установку из браузера.",style=MaterialTheme.typography.bodySmall)
             }
         }
     }
-    if(BuildConfig.STORE_DISTRIBUTION) Panel { Text("Версия ${BuildConfig.VERSION_NAME}. Обновления — через Google Play.") }
+    if(BuildConfig.STORE_DISTRIBUTION) Panel { LocalizedText("Версия ${BuildConfig.VERSION_NAME}. Обновления — через Google Play.") }
     Panel {
-        Text("О MGym", style = MaterialTheme.typography.titleLarge)
-        Text("Тренировочные данные хранятся локально на устройстве.")
-        Text("MGym сделан на энтузиазме спортсмена и бесплатен для всех желающих. Без регистрации и рекламы. История не отправляется в интернет. Расчётный e1RM — статистическая оценка, а не проверенный максимум.")
-        Text("MGym не является медицинским изделием, не диагностирует, не лечит и не предотвращает заболевания. По вопросам здоровья и допустимости нагрузок обратитесь к медицинскому специалисту.",style=MaterialTheme.typography.bodySmall)
-        OutlinedButton(onClick={ runCatching { context.startActivity(Intent(Intent.ACTION_VIEW,"https://mg-trener.github.io/Gym-150/privacy.html".toUri())) }.onFailure {model.notify("Не удалось открыть политику конфиденциальности")} },modifier=Modifier.fillMaxWidth()) {Text("Конфиденциальность ↗")}
+        LocalizedText("О MGym", style = MaterialTheme.typography.titleLarge)
+        LocalizedText("Тренировочные данные хранятся локально на устройстве.")
+        LocalizedText("MGym сделан на энтузиазме спортсмена и бесплатен для всех желающих. Без регистрации и рекламы. История не отправляется в интернет. Расчётный e1RM — статистическая оценка, а не проверенный максимум.")
+        LocalizedText("MGym не является медицинским изделием, не диагностирует, не лечит и не предотвращает заболевания. По вопросам здоровья и допустимости нагрузок обратитесь к медицинскому специалисту.",style=MaterialTheme.typography.bodySmall)
+        OutlinedButton(onClick={ runCatching { context.startActivity(Intent(Intent.ACTION_VIEW,("https://mgym.mg-trener.com/" + if(om.mgtrener.mgym.i18n.Language.tag=="ru") "privacy.html" else "privacy-en.html").toUri())) }.onFailure {model.notify("Не удалось открыть политику конфиденциальности")} },modifier=Modifier.fillMaxWidth()) {LocalizedText("Конфиденциальность ↗")}
+        OutlinedButton(onClick={ licenses=true },modifier=Modifier.fillMaxWidth()) { LocalizedText("Лицензии компонентов") }
         HorizontalDivider()
-        Text("Любое вознаграждение разработчику за эту программу — исключительно по желанию пользователя. Все функции доступны бесплатно.")
-        Text("Отзывы и предложения можно отправить разработчику в WhatsApp.")
-        Text("Разработчик", style = MaterialTheme.typography.titleMedium)
-        Text("Михаил Гаврилычев · +7 701 870 93 84", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LocalizedText("Любое вознаграждение разработчику за эту программу — исключительно по желанию пользователя. Все функции доступны бесплатно.")
+        LocalizedText("Отзывы и предложения можно отправить разработчику в WhatsApp.")
+        LocalizedText("Разработчик", style = MaterialTheme.typography.titleMedium)
+        LocalizedText("Михаил Гаврилычев · +7 701 870 93 84", color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedButton(
             onClick = {
                 val url = "https://wa.me/77018709384".toUri()
@@ -102,17 +125,23 @@ fun SettingsScreen(model: GymViewModel) {
                     .onFailure { model.notify("Не удалось открыть WhatsApp") }
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Отзывы и предложения · WhatsApp ↗") }
+        ) { LocalizedText("Отзывы и предложения · WhatsApp ↗") }
     }
-    TextButton(onClick = { delete = true }, enabled = !model.busy) { Text("Удалить все данные", color = MaterialTheme.colorScheme.error) }
-    if(delete) AlertDialog(onDismissRequest = { delete = false }, title = { Text("Удалить весь дневник?") },
-        text = { Text("Будут удалены тренировки, текущий ввод и настройки. Сначала сохрани JSON, если хочешь восстановить их позже.") },
-        confirmButton = { TextButton(onClick = { model.clear(); delete = false }) { Text("Удалить всё") } },
-        dismissButton = { TextButton(onClick = { delete = false }) { Text("Отмена") } })
+    TextButton(onClick = { delete = true }, enabled = !model.busy) { LocalizedText("Удалить все данные", color = MaterialTheme.colorScheme.error) }
+    if(delete) AlertDialog(onDismissRequest = { delete = false }, title = { LocalizedText("Удалить весь дневник?") },
+        text = { LocalizedText("Будут удалены тренировки, текущий ввод и настройки. Сначала сохрани JSON, если хочешь восстановить их позже.") },
+        confirmButton = { TextButton(onClick = { model.clear(); delete = false }) { LocalizedText("Удалить всё") } },
+        dismissButton = { TextButton(onClick = { delete = false }) { LocalizedText("Отмена") } })
+    if(licenses) AlertDialog(onDismissRequest={licenses=false},title={LocalizedText("Лицензии компонентов")},text={
+        val notice=remember { context.assets.open("licenses/NOTICE.txt").bufferedReader().use { it.readText() } }
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max=440.dp)) {
+            items(notice.split("\n\n").size) { i -> Text(notice.split("\n\n")[i],style=MaterialTheme.typography.bodySmall) }
+        }
+    },confirmButton={TextButton(onClick={licenses=false}) {LocalizedText("Закрыть")} })
     model.preview?.let { backup ->
-        AlertDialog(onDismissRequest = model::cancelImport, title = { Text("Восстановить резервную копию?") },
-            text = { Text("В файле: ${backup.data.workouts.size} тренировок, ${backup.data.sets.size} подходов.\n\nТекущий дневник и незавершённая тренировка будут заменены. Это действие нельзя отменить без своей резервной копии.") },
-            confirmButton = { TextButton(onClick = model::importBackup, enabled = !model.busy) { Text("Заменить и восстановить") } },
-            dismissButton = { TextButton(onClick = model::cancelImport) { Text("Отмена") } })
+        AlertDialog(onDismissRequest = model::cancelImport, title = { LocalizedText("Восстановить резервную копию?") },
+            text = { LocalizedText("В файле: ${backup.data.workouts.size} тренировок, ${backup.data.sets.size} подходов.\n\nТекущий дневник и незавершённая тренировка будут заменены. Это действие нельзя отменить без своей резервной копии.") },
+            confirmButton = { TextButton(onClick = model::importBackup, enabled = !model.busy) { LocalizedText("Заменить и восстановить") } },
+            dismissButton = { TextButton(onClick = model::cancelImport) { LocalizedText("Отмена") } })
     }
 }

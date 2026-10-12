@@ -1,6 +1,6 @@
-const months=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
-const fullDate=s=>new Intl.DateTimeFormat('ru-RU',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(s+'T12:00:00Z'));
-const weight=n=>n==null?'по самочувствию':String(n).replace('.',',')+' кг';
+const months=window.MGymI18n.months;
+const fullDate=s=>window.MGymI18n.date(s);
+const weight=n=>n==null?'по самочувствию':new Intl.NumberFormat(window.MGymI18n.tag,{maximumFractionDigits:2}).format(n)+' '+window.MGymI18n.text('кг');
 const rest=n=>n>=60?Math.floor(n/60)+':'+String(n%60).padStart(2,'0'):n+' с';
 const accessoryImages={
   'Сгибание ног в тренажёре':'leg-curl.png',

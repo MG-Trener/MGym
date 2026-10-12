@@ -50,7 +50,7 @@ private fun plannedWeight(value: Double?): String = value?.let {
     if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString().replace('.', ',')
 } ?: "—"
 private fun plannedRest(seconds: Int): String = "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
-private fun dayLabel(id: String): String = LocalDate.parse(id).format(DateTimeFormatter.ofPattern("d MMMM", Locale.forLanguageTag("ru")))
+private fun dayLabel(id: String): String = LocalDate.parse(id).format(DateTimeFormatter.ofPattern("d MMMM", om.mgtrener.mgym.i18n.Language.locale))
 private fun entryKey(day: PlannedDay, exercise: Int, set: Int): String = "${day.id}/$exercise/$set"
 
 @Composable
@@ -61,19 +61,19 @@ fun Bench150Screen(onBack: () -> Unit) {
     var selected by remember { mutableStateOf<String?>(null) }
     var savedVersion by remember { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        TextButton(onClick = { if(selected == null) onBack() else selected = null }) { Text("← ${if(selected == null) "Сегодня" else "Календарь"}") }
+        TextButton(onClick = { if(selected == null) onBack() else selected = null }) { LocalizedText("← ${if(selected == null) "Сегодня" else "Календарь"}") }
         if (selected == null) {
-            Text("Путь к 150 кг", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("12 октября — 5 декабря 2026", color = Lime, style = MaterialTheme.typography.titleMedium)
-            Text(plan.baseline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LocalizedText("Путь к 150 кг", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+            LocalizedText("12 октября — 5 декабря 2026", color = Lime, style = MaterialTheme.typography.titleMedium)
+            LocalizedText(plan.baseline, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Как менять нагрузку", fontWeight = FontWeight.Bold)
-                    plan.rules.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+                    LocalizedText("Как менять нагрузку", fontWeight = FontWeight.Bold)
+                    plan.rules.forEach { LocalizedText("• $it", style = MaterialTheme.typography.bodySmall) }
                 }
             }
             plan.days.groupBy { it.week }.forEach { (week, days) ->
-                Text("НЕДЕЛЯ $week", style = MaterialTheme.typography.labelLarge, color = Lime,
+                LocalizedText("НЕДЕЛЯ $week", style = MaterialTheme.typography.labelLarge, color = Lime,
                     modifier = Modifier.padding(top = 10.dp))
                 days.forEach { day ->
                     val count = remember(day.id, savedVersion) { completedCount(preferences, day) }
@@ -82,22 +82,22 @@ fun Bench150Screen(onBack: () -> Unit) {
                         shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                             Column(Modifier.weight(1f)) {
-                                Text(dayLabel(day.id), fontWeight = FontWeight.Bold)
-                                Text(day.title, style = MaterialTheme.typography.bodyMedium)
+                                LocalizedText(dayLabel(day.id), fontWeight = FontWeight.Bold)
+                                LocalizedText(day.title, style = MaterialTheme.typography.bodyMedium)
                             }
-                            Text("$count/$total  ›", color = Lime, style = MaterialTheme.typography.labelLarge)
+                            LocalizedText("$count/$total  ›", color = Lime, style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
             }
         } else {
             val day = plan.days.first { it.id == selected }
-            Text(dayLabel(day.id), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text(day.title, color = Lime, style = MaterialTheme.typography.titleLarge)
-            Text(day.note, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LocalizedText(dayLabel(day.id), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            LocalizedText(day.title, color = Lime, style = MaterialTheme.typography.titleLarge)
+            LocalizedText(day.note, color = MaterialTheme.colorScheme.onSurfaceVariant)
             day.exercises.forEachIndexed { exerciseIndex, exercise ->
-                Text(exercise.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 12.dp))
-                Text(exercise.load, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LocalizedText(exercise.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 12.dp))
+                LocalizedText(exercise.load, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 exercise.sets.forEachIndexed { setIndex, set ->
                     PlannedSetCard(day, exerciseIndex, setIndex, set, preferences) { savedVersion++ }
                 }
@@ -124,23 +124,23 @@ private fun PlannedSetCard(day: PlannedDay, exerciseIndex: Int, setIndex: Int, s
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${setIndex + 1}. ${set.kind}", fontWeight = FontWeight.Bold, color = if(set.rpe) Lime else MaterialTheme.colorScheme.onSurface)
-                if(saved) Text("✓ Сохранено", color = Lime, style = MaterialTheme.typography.labelSmall)
+                LocalizedText("${setIndex + 1}. ${set.kind}", fontWeight = FontWeight.Bold, color = if(set.rpe) Lime else MaterialTheme.colorScheme.onSurface)
+                if(saved) LocalizedText("✓ Сохранено", color = Lime, style = MaterialTheme.typography.labelSmall)
             }
-            Text("План: ${plannedWeight(set.weight)} × ${set.reps} · отдых ${plannedRest(set.rest)} после подхода",
+            LocalizedText("План: ${plannedWeight(set.weight)} × ${set.reps} · отдых ${plannedRest(set.rest)} после подхода",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(actualWeight, { actualWeight = it; saved = false }, label = { Text("Кг") },
+                OutlinedTextField(actualWeight, { actualWeight = it; saved = false }, label = { LocalizedText("Кг") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true,
                     modifier = Modifier.weight(1f))
-                OutlinedTextField(actualReps, { actualReps = it; saved = false }, label = { Text("Повт.") },
+                OutlinedTextField(actualReps, { actualReps = it; saved = false }, label = { LocalizedText("Повт.") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true,
                     modifier = Modifier.weight(1f))
-                if(set.rpe) OutlinedTextField(actualRpe, { actualRpe = it; saved = false }, label = { Text("RPE") },
+                if(set.rpe) OutlinedTextField(actualRpe, { actualRpe = it; saved = false }, label = { LocalizedText("RPE") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true,
                     modifier = Modifier.weight(1f))
             }
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            error?.let { LocalizedText(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             Button(onClick = {
                 val weight = actualWeight.replace(',', '.').toDoubleOrNull()
                 val reps = actualReps.toIntOrNull()
@@ -157,7 +157,7 @@ private fun PlannedSetCard(day: PlannedDay, exerciseIndex: Int, setIndex: Int, s
                     saved = true
                     onSaved()
                 }
-            }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Сохранить подход") }
+            }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { LocalizedText("Сохранить подход") }
         }
     }
 }

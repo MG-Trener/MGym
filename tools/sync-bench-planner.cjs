@@ -35,3 +35,4 @@ for(const f of ['generator.test.cjs','engine-v2.test.cjs','engine-v3.test.cjs','
  fs.writeFileSync(path.resolve(__dirname,'../tests/bench-planner',f),test.trimEnd()+'\n');
 }
 console.log('Copied planner '+manifest.algorithm+'; calculation files unchanged.');
+require('./localize-planner.cjs');

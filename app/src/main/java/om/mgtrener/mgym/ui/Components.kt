@@ -20,16 +20,16 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-fun number(value: Double): String = String.format(Locale.forLanguageTag("ru"), "%.1f", value).removeSuffix(",0")
+fun number(value: Double): String = String.format(om.mgtrener.mgym.i18n.Language.locale, "%.1f", value).removeSuffix(",0").removeSuffix(".0")
 fun date(value: Long): String = Instant.ofEpochMilli(value).atZone(ZoneId.systemDefault())
-    .format(DateTimeFormatter.ofPattern("d MMM yyyy · HH:mm", Locale.forLanguageTag("ru")))
+    .format(DateTimeFormatter.ofPattern("d MMM yyyy · HH:mm", om.mgtrener.mgym.i18n.Language.locale))
 fun day(value: Long) = Instant.ofEpochMilli(value).atZone(ZoneId.systemDefault()).toLocalDate()
 
 @Composable
 fun SectionTitle(title: String, subtitle: String? = null) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        subtitle?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium) }
+        LocalizedText(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        subtitle?.let { LocalizedText(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium) }
     }
 }
 @Composable
@@ -44,9 +44,9 @@ fun Hero(count: Int) {
     Row(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF24312E), Color(0xFF141A20))),
         RoundedCornerShape(14.dp)).padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("MGYM / TRAINING LOG", color = Lime, style = MaterialTheme.typography.labelSmall)
-            Text("Сильнее с каждым\nподходом.", style = MaterialTheme.typography.headlineMedium)
-            Text(if(count == 0) "Твоя точка отсчёта — сегодня." else "$count тренировок в истории",
+            LocalizedText("MGYM / TRAINING LOG", color = Lime, style = MaterialTheme.typography.labelSmall)
+            LocalizedText("Сильнее с каждым\nподходом.", style = MaterialTheme.typography.headlineMedium)
+            LocalizedText(if(count == 0) "Твоя точка отсчёта — сегодня." else "$count тренировок в истории",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -65,8 +65,8 @@ fun SummaryCard(sets: List<LiftSet>, showEstimate: Boolean = true) {
         (listOf("ОБЪЁМ, КГ" to number(stats.volume), "ПОВТОРЫ" to stats.reps.toString()) +
             if(showEstimate) listOf("e1RM, КГ ≈" to (stats.e1rm?.let { number(it) } ?: "—")) else emptyList()).forEach { (label,value) ->
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(value, style = MaterialTheme.typography.titleLarge)
+                LocalizedText(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LocalizedText(value, style = MaterialTheme.typography.titleLarge)
             }
         }
     }

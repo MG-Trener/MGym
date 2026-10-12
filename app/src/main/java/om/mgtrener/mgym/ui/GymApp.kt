@@ -39,20 +39,20 @@ fun GymApp(model: GymViewModel) {
             if(model.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             if(!model.ready) {
                 Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("MGym", style = MaterialTheme.typography.displayMedium)
+                    LocalizedText("MGym", style = MaterialTheme.typography.displayMedium)
                     CircularProgressIndicator()
-                    Text("Открываем локальный дневник…")
+                    LocalizedText("Открываем локальный дневник…")
                 }
             } else Column(Modifier.weight(1f).then(if(fixedScreen) Modifier else Modifier.verticalScroll(contentScroll)).padding(if(planOpen) 0.dp else 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when {
                     planOpen -> BenchPlannerScreen(discipline) { planOpen = false; model.refreshDiary() }
                     result != null -> {
-                        TextButton(onClick = { model.closeResult() }) { Text("← Сегодня") }
+                        TextButton(onClick = { model.closeResult() }) { LocalizedText("← Сегодня") }
                         WorkoutDetail(model.data, result, true, model::reorder, !model.busy, model::saveCompleted, model::removeCompleted)
                     }
                     selectedWorkout != null -> {
-                        TextButton(onClick = { selectedWorkout = null }) { Text("← Назад") }
+                        TextButton(onClick = { selectedWorkout = null }) { LocalizedText("← Назад") }
                         WorkoutDetail(model.data, selectedWorkout!!, false, model::reorder, !model.busy, model::saveCompleted, model::removeCompleted)
                     }
                     workoutOpen && active != null -> {
@@ -72,7 +72,7 @@ fun GymApp(model: GymViewModel) {
         }
     }
     model.message?.let { message ->
-        AlertDialog(onDismissRequest = { model.dismissMessage() }, title = { Text("MGym") },
-            text = { Text(message) }, confirmButton = { TextButton(onClick = { model.dismissMessage() }) { Text("Понятно") } })
+        AlertDialog(onDismissRequest = { model.dismissMessage() }, title = { LocalizedText("MGym") },
+            text = { LocalizedText(message) }, confirmButton = { TextButton(onClick = { model.dismissMessage() }) { LocalizedText("Понятно") } })
     }
 }

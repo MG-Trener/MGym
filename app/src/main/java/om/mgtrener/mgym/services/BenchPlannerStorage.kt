@@ -8,6 +8,7 @@ import java.io.File
 class BenchPlannerStorage(context: Context, private val onExport: () -> Unit, private val onImport: () -> Unit) {
     private val app = context.applicationContext
     private val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    @JavascriptInterface fun language(): String = om.mgtrener.mgym.i18n.Language.tag
     @JavascriptInterface fun read(key: String): String? {
         if(key !in KEYS)return null
         PlannerDiary.read(app,key)?.let { return it }
