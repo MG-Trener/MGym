@@ -58,12 +58,12 @@ fun Hero(count: Int) {
     }
 }
 @Composable
-fun SummaryCard(sets: List<LiftSet>) {
+fun SummaryCard(sets: List<LiftSet>, showEstimate: Boolean = true) {
     val stats = Analytics.summarize(sets)
     Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp)).padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf("ОБЪЁМ, КГ" to number(stats.volume), "ПОВТОРЫ" to stats.reps.toString(),
-            "e1RM, КГ ≈" to (stats.e1rm?.let { number(it) } ?: "—")).forEach { (label,value) ->
+        (listOf("ОБЪЁМ, КГ" to number(stats.volume), "ПОВТОРЫ" to stats.reps.toString()) +
+            if(showEstimate) listOf("e1RM, КГ ≈" to (stats.e1rm?.let { number(it) } ?: "—")) else emptyList()).forEach { (label,value) ->
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(value, style = MaterialTheme.typography.titleLarge)

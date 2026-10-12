@@ -4,7 +4,13 @@ enum class Exercise(val title: String, val short: String) {
     BENCH("Жим штанги лёжа", "Жим"),
     DEADLIFT("Становая тяга", "Тяга"),
     SQUAT("Приседания", "Присед"),
-    CURL("Подъём штанги на бицепс", "Бицепс")
+    CURL("Подъём штанги на бицепс", "Бицепс"),
+    CABLE_ROW("Тяга горизонтального блока", "Блок"),
+    DUMBBELL_ROW("Тяга гантели в наклоне", "Гантель"),
+    LAT_PULLDOWN("Тяга верхнего блока", "Верхний блок"),
+    TRICEPS("Разгибание рук на блоке", "Трицепс"),
+    REAR_DELT("Разведения для задней дельты", "Дельты"),
+    OVERHEAD_TRICEPS("Французское разгибание с гантелью", "Разгибание")
 }
 val trainingExercises = listOf(Exercise.BENCH, Exercise.DEADLIFT, Exercise.SQUAT)
 enum class SetKind(val title: String) {
@@ -17,7 +23,7 @@ data class LiftSet(
     val technique: Technique = Technique.NORMAL, val rir: Int? = null,
     val rpe: Double? = null, val comment: String = ""
 )
-data class Workout(val id: Long, val startedAt: Long, val finishedAt: Long?, val exercises: List<Exercise>)
+data class Workout(val id: Long, val startedAt: Long, val finishedAt: Long?, val exercises: List<Exercise>, val sourceKey: String? = null, val sourceHash: String? = null)
 data class Draft(
     val exercise: Exercise = Exercise.BENCH, val weight: String = "20", val reps: String = "8",
     val kind: SetKind = SetKind.WORK, val technique: Technique = Technique.NORMAL,
@@ -49,10 +55,10 @@ data class GymData(val workouts: List<Workout> = emptyList(), val sets: List<Lif
 
 // Keep legacy curls in backups, outside the current training diary.
 fun GymData.trainingDiary(): GymData {
-    val visibleSets = sets.filter { it.exercise in trainingExercises }
+    val visibleSets = sets.filter { it.exercise != Exercise.CURL }
     val ids = visibleSets.map { it.workoutId }.toSet()
     val visible = workouts.filter { it.id in ids || (it.finishedAt == null && it.exercises.any { e -> e in trainingExercises }) }
-        .map { workout -> workout.copy(exercises = workout.exercises.filter { it in trainingExercises }) }
+        .map { workout -> workout.copy(exercises = workout.exercises.filter { it != Exercise.CURL }) }
     return GymData(visible, visibleSets)
 }
 

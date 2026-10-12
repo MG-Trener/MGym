@@ -18,7 +18,7 @@ class GymRepository(private val helper: GymDatabase) {
         val workouts = db.rawQuery("SELECT * FROM workouts ORDER BY started_at DESC, id DESC", null).use { c ->
             buildList {
                 while (c.moveToNext()) add(Workout(c.getLong(0), c.getLong(1),
-                    if (c.isNull(2)) null else c.getLong(2), c.getString(3).split(",").map { Exercise.valueOf(it) }))
+                    if (c.isNull(2)) null else c.getLong(2), c.getString(3).split(",").map { Exercise.valueOf(it) }, c.getString(4), c.getString(5)))
             }
         }
         val sets = db.rawQuery("SELECT * FROM sets ORDER BY workout_id, exercise, position, id", null).use { c ->
@@ -148,6 +148,7 @@ class GymRepository(private val helper: GymDatabase) {
             db.insertOrThrow("workouts", null, ContentValues().apply {
                 put("id", w.id); put("started_at", w.startedAt); put("finished_at", w.finishedAt)
                 put("exercises", w.exercises.joinToString(",") { it.name })
+                put("source_key", w.sourceKey); put("source_hash", w.sourceHash)
             })
         }
         backup.data.sets.forEachIndexed { index, s -> db.insertOrThrow("sets", null, values(s).apply { put("id",s.id); put("position",index) }) }

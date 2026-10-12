@@ -14,8 +14,8 @@ android {
             "om.mgtrener.mgym.uitest" else "om.mgtrener.mgym"
         minSdk = 30
         targetSdk = 37
-        versionCode = 12
-        versionName = "0.2.8"
+        versionCode = 13
+        versionName = "0.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

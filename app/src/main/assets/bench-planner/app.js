@@ -41,7 +41,7 @@ function renderMainTable(ex){
   const tbody=section.querySelector('tbody');
   ex.sets.forEach((set,i)=>{
     const tr=document.createElement('tr');if(set.rpe)tr.className='heavy';
-    const kind=set.kind+(set.rpe&&!set.kind.includes('≤8')?' · RPE':'');
+    const kind=set.kind+(set.rpeTarget?' · RPE '+set.rpeTarget:set.rpe?' · RPE':'');
     [i+1,set.weight===null?'подбор':weight(set.weight),set.reps,rest(set.rest),kind].forEach((value,j)=>{
       const td=document.createElement('td');td.textContent=value;if(j===4)td.className='kind';tr.append(td);
     });

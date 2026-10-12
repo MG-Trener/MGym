@@ -19,12 +19,13 @@ class GymDatabase(context: Context) : SQLiteOpenHelper(context, "mgym.db", null,
         createSets(db, "sets")
         createSetIndexes(db)
         db.execSQL("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        createPlanner(db)
     }
     private fun createSets(db: SQLiteDatabase, name: String) {
         db.execSQL("""CREATE TABLE $name (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             workout_id INTEGER NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
-            exercise TEXT NOT NULL CHECK(exercise IN ('BENCH','DEADLIFT','SQUAT','CURL')),
+            exercise TEXT NOT NULL CHECK(exercise IN ('BENCH','DEADLIFT','SQUAT','CURL','CABLE_ROW','DUMBBELL_ROW','LAT_PULLDOWN','TRICEPS','REAR_DELT','OVERHEAD_TRICEPS')),
             weight REAL NOT NULL CHECK(weight > 0 AND weight <= 1500),
             reps INTEGER NOT NULL CHECK(reps BETWEEN 1 AND 200),
             kind TEXT NOT NULL, technique TEXT NOT NULL,
@@ -34,6 +35,12 @@ class GymDatabase(context: Context) : SQLiteOpenHelper(context, "mgym.db", null,
     private fun createSetIndexes(db: SQLiteDatabase) {
         db.execSQL("CREATE INDEX sets_workout ON sets(workout_id, id)")
         db.execSQL("CREATE INDEX sets_exercise ON sets(exercise, workout_id)")
+    }
+    private fun createPlanner(db: SQLiteDatabase) {
+        db.execSQL("ALTER TABLE workouts ADD COLUMN source_key TEXT")
+        db.execSQL("ALTER TABLE workouts ADD COLUMN source_hash TEXT")
+        db.execSQL("CREATE UNIQUE INDEX planner_workout_source ON workouts(source_key) WHERE source_key IS NOT NULL")
+        db.execSQL("CREATE TABLE planner_documents (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     }
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) {
@@ -48,6 +55,14 @@ class GymDatabase(context: Context) : SQLiteOpenHelper(context, "mgym.db", null,
             db.execSQL("ALTER TABLE sets_new RENAME TO sets")
             createSetIndexes(db)
         }
+        if (oldVersion < 4) {
+            createSets(db, "sets_v4")
+            db.execSQL("INSERT INTO sets_v4 SELECT * FROM sets")
+            db.execSQL("DROP TABLE sets")
+            db.execSQL("ALTER TABLE sets_v4 RENAME TO sets")
+            createSetIndexes(db)
+            createPlanner(db)
+        }
     }
-    companion object { const val VERSION = 3 }
+    companion object { const val VERSION = 4 }
 }

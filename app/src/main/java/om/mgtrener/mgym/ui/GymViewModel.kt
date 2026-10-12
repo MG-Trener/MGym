@@ -86,6 +86,7 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun start(exercises: List<Exercise>) = action(reloadDraft = true) { repository.start(exercises) }
+    fun refreshDiary() = action { }
     fun add(onSuccess: () -> Unit) {
         val active = data.active ?: return
         val set = try { draft.copy(kind = SetKind.WORK).toSet(active.id) } catch(e: IllegalArgumentException) { message = e.message; return }

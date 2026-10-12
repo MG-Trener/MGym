@@ -47,11 +47,11 @@ fun WorkoutDetail(
     var removing by remember { mutableStateOf<LiftSet?>(null) }
     var adding by remember { mutableStateOf(false) }
     val sets=data.setsFor(id).filter { it.exercise==exercise }
-    val canEdit=save!=null && delete!=null
+    val canEdit=save!=null && delete!=null && workout.sourceKey==null
     Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(if(isResult) "ТРЕНИРОВКА ЗАВЕРШЕНА" else "Тренировка",style=MaterialTheme.typography.titleMedium)
+                Text(if(workout.sourceKey!=null) "ТРЕНИРОВКА ПО ПЛАНУ" else if(isResult) "ТРЕНИРОВКА ЗАВЕРШЕНА" else "Тренировка",style=MaterialTheme.typography.titleMedium)
                 Text(date(workout.startedAt),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
             CopyWorkout(data,id)
@@ -69,11 +69,12 @@ fun WorkoutDetail(
                 ) { Text(if(editMode) "Готово" else "Редактировать") }
         }
         if(workout.exercises.size>1) CompactTabs(workout.exercises.map { it.short },workout.exercises.indexOf(exercise)) { exercise=workout.exercises[it] }
-        SummaryCard(sets)
+        if(workout.sourceKey!=null) Text("Факт из плана · изменения через «Записать факт»",style=MaterialTheme.typography.labelSmall)
+        SummaryCard(sets,exercise in trainingExercises)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
             Text("Подходы · ${sets.size}",style=MaterialTheme.typography.labelMedium)
             Text(
-                if(editMode) "Нажми на вес или повторы" else "Удерживай ≡ и перемещай",
+                if(workout.sourceKey!=null) "Сохранённый факт" else if(editMode) "Нажми на вес или повторы" else "Удерживай ≡ и перемещай",
                 style=MaterialTheme.typography.labelSmall,
                 color=MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -82,7 +83,7 @@ fun WorkoutDetail(
             sets,
             Modifier.weight(1f),
             enabled,
-            reorder=if(reorder!=null) { ids -> reorder(id,exercise,ids) } else null,
+            reorder=if(reorder!=null && workout.sourceKey==null) { ids -> reorder(id,exercise,ids) } else null,
             edit=if(editMode && canEdit) { set -> editing=set } else null,
             delete=if(editMode && canEdit && sets.size>1) { set -> removing=set } else null,
             footer=if(editMode && canEdit) {
