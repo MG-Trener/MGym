@@ -8,6 +8,7 @@
   const round=(n,step,bar)=>Number((bar+Math.max(0,Math.floor((n-bar+1e-8)/step))*step).toFixed(2));
   function validate(p,extended=false){
     const errors=[];
+    if(p.discipline!==undefined&&!['bench','squat','deadlift'].includes(p.discipline))errors.push('Неизвестная дисциплина.');
     const range=(v,a,b)=>typeof v==='number'&&Number.isFinite(v)&&v>=a&&v<=b;
     if(!range(p.age,extended?14:18,extended?100:85)||!Number.isInteger(p.age))errors.push('Возраст вне диапазона: 14–100 лет для нового расчёта. До 14 лет нужен индивидуальный план.');
     if(extended&&(p.age<18||p.age>85)&&p.supervised!==true)errors.push('До 18 и после 85 лет подтвердите индивидуальное сопровождение тренером и допуск к нагрузке.');
@@ -101,10 +102,11 @@
   // Импорт содержит только данные. Ограничения также защищают интерфейс от огромных/повреждённых файлов.
   function validatePlan(p){
     if(!p||typeof p.id!=='string'||p.id.length>100||typeof p.name!=='string'||p.name.length>100||!Array.isArray(p.sessions)||p.sessions.length<1||p.sessions.length>650||!Array.isArray(p.rules)||p.rules.length>30||p.rules.some(s=>typeof s!=='string'||s.length>1500))throw Error('Некорректный формат программы.');
-    if(!/^p-[a-zA-Z0-9-]+$/.test(p.id)||!['bench-natural-1','bench-natural-2','bench-natural-3'].includes(p.algorithm)||p.version!==1||!p.profile||validate(p.profile,p.algorithm==='bench-natural-3').length||!p.meta||!(p.meta.base===null||Number.isFinite(p.meta.base)&&p.meta.base>0)||typeof p.meta.ageGroup!=='string'||!Number.isFinite(p.meta.relativeGoal))throw Error('Повреждены параметры расчёта.');
+    if(!/^p-[a-zA-Z0-9-]+$/.test(p.id)||!['bench-natural-1','bench-natural-2','bench-natural-3','strength-natural-4'].includes(p.algorithm)||p.version!==1||!p.profile||validate(p.profile,['bench-natural-3','strength-natural-4'].includes(p.algorithm)).length||!p.meta||!(p.meta.base===null||Number.isFinite(p.meta.base)&&p.meta.base>0)||typeof p.meta.ageGroup!=='string'||!Number.isFinite(p.meta.relativeGoal))throw Error('Повреждены параметры расчёта.');
+    if((p.profile.discipline==='squat'||p.profile.discipline==='deadlift')&&p.algorithm!=='strength-natural-4')throw Error('Для приседа и тяги нужен новый генератор.');
     const ids=new Set();let previous='';
     if(p.meta.reviewed!==undefined){if(!Array.isArray(p.meta.reviewed)||p.meta.reviewed.length>650)throw Error('Повреждена история пересмотра.');p.meta.reviewed.forEach(date);}
-    if(p.algorithm==='bench-natural-3'){
+    if(['bench-natural-3','strength-natural-4'].includes(p.algorithm)){
       if(p.profile.blockStart){date(p.profile.blockStart);if(p.profile.blockStart<p.profile.start||p.profile.blockStart>=p.profile.target)throw Error('Повреждено начало блока.');}
       if(p.profile.baseVerifiedOn)date(p.profile.baseVerifiedOn);
       if(!Array.isArray(p.meta.adjustments)||p.meta.adjustments.length>650||!Array.isArray(p.meta.revisions||[])||(p.meta.revisions||[]).length>650)throw Error('Повреждена история изменений.');
@@ -127,7 +129,8 @@
       for(const s of log.sets){for(const [k,max] of [['kg',500],['reps',100],['rpe',10]])if(!(s[k]===null||typeof s[k]==='number'&&Number.isFinite(s[k])&&s[k]>=0&&s[k]<=max))throw Error('Некорректный результат в журнале.');if(s.reps!==null&&!Number.isInteger(s.reps))throw Error('Повторы должны быть целыми.');}
     }
     // Не переносим неизвестные корневые поля из файлов.
-    return {version:VERSION,active:v.active,plans:v.plans,logs:v.logs};
+    const current={};for(const [d,id] of Object.entries(v.current||{})){if(!['bench','squat','deadlift'].includes(d)||!v.plans.some(p=>p.id===id&&(p.profile.discipline||'bench')===d))throw Error('Повреждён выбор дисциплины.');current[d]=id;}
+    return {version:VERSION,active:v.active,plans:v.plans,logs:v.logs,...(v.current?{current}:{})};
   }
   const api={generate,validate,validatePlan,validateState,round,days,iso,VERSION};
   if(typeof module!=='undefined')module.exports=api;else root.BenchGenerator=api;

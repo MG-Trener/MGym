@@ -23,6 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import om.mgtrener.mgym.services.BenchPlannerStorage
+import om.mgtrener.mgym.domain.*
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -34,7 +35,7 @@ internal object BenchPlannerAssets {
     const val HOME = ROOT + "index.html"
     private val files = setOf("index.html", "method.html", "style.css", "mobile.css", "app.js", "planner.js",
         "generator.js", "engine-v2.js", "engine-v3.js", "mobile.js", "plan.json") + listOf("cable-row", "dumbbell-row",
-        "lat-pulldown", "overhead-triceps-extension", "rear-delt-fly", "triceps-pushdown").map { "assets/$it.webp" }
+        "lat-pulldown", "overhead-triceps-extension", "rear-delt-fly", "triceps-pushdown").map { "assets/$it.webp" } + listOf("leg-curl", "split-squat", "hip-thrust").map { "assets/$it.png" }
     fun path(uri: Uri): String? = uri.path?.removePrefix("/bench/")?.takeIf {
         uri.scheme == "https" && uri.host == HOST && uri.port == -1 && uri.userInfo == null &&
             uri.path?.startsWith("/bench/") == true && it in files
@@ -42,7 +43,7 @@ internal object BenchPlannerAssets {
     fun response(context: Context, uri: Uri): WebResourceResponse {
         val path = path(uri)
         if (path == null) return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), ByteArrayInputStream(byteArrayOf()))
-        val mime = when (path.substringAfterLast('.')) { "js" -> "text/javascript"; "css" -> "text/css"; "json" -> "application/json"; "webp" -> "image/webp"; else -> "text/html" }
+        val mime = when (path.substringAfterLast('.')) { "js" -> "text/javascript"; "css" -> "text/css"; "json" -> "application/json"; "webp" -> "image/webp"; "png" -> "image/png"; else -> "text/html" }
         return runCatching {
             WebResourceResponse(mime, "UTF-8", 200, "OK", mapOf(
                 "Content-Security-Policy" to "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'",
@@ -53,7 +54,7 @@ internal object BenchPlannerAssets {
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun BenchPlannerScreen(onBack: () -> Unit) {
+fun BenchPlannerScreen(discipline: Exercise = Exercise.BENCH, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var legacy by rememberSaveable { mutableStateOf(false) }
@@ -106,7 +107,7 @@ fun BenchPlannerScreen(onBack: () -> Unit) {
     } else Column(Modifier.fillMaxSize().imePadding()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(onClick = goBack) { Text("← Назад") }
-            TextButton(onClick = { legacy = true }) { Text("Прежний план и записи") }
+            if(discipline==Exercise.BENCH) TextButton(onClick = { legacy = true }) { Text("Прежний план и записи") }
         }
         AndroidView(modifier = Modifier.fillMaxWidth().weight(1f), factory = { ctx ->
             WebView(ctx).apply {
@@ -139,10 +140,10 @@ fun BenchPlannerScreen(onBack: () -> Unit) {
                         return true
                     }
                 }
-                loadUrl(BenchPlannerAssets.HOME)
+                loadUrl(BenchPlannerAssets.HOME + "?discipline=" + discipline.disciplineKey)
             }
         }, onRelease = { view -> view.stopLoading(); view.removeJavascriptInterface("MGymNative"); view.destroy(); if (web === view) web = null })
     }
-    message?.let { text -> AlertDialog(onDismissRequest = { message = null }, title = { Text("Программы жима") },
+    message?.let { text -> AlertDialog(onDismissRequest = { message = null }, title = { Text("Планы тренировок") },
         text = { Text(text) }, confirmButton = { TextButton(onClick = { message = null }) { Text("Понятно") } }) }
 }

@@ -67,8 +67,8 @@ class BenchPlannerTest {
         BenchPlannerStorage.clear(context)
         context.deleteDatabase("mgym.db")
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            compose.waitUntil(15000) { compose.onAllNodesWithText("Путь к 150 кг  ↗").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("Путь к 150 кг  ↗").performScrollTo().performClick()
+            compose.waitUntil(15000) { compose.onAllNodesWithText("План жима лёжа").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("План жима лёжа").performScrollTo().performClick()
             ready(scenario)
             js(scenario,"selectSession('2026-10-12');document.querySelector('#detail button').click()")
             capture(scenario,"bench-log-fixed.png")
@@ -105,8 +105,8 @@ class BenchPlannerTest {
         val old=context.getSharedPreferences("bench150-progress-v1",Context.MODE_PRIVATE)
         old.edit().putString("2026-10-12/0/4","{\"weight\":115,\"reps\":1,\"rpe\":6}").commit()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            compose.waitUntil(15000) { compose.onAllNodesWithText("Путь к 150 кг  ↗").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("Путь к 150 кг  ↗").performScrollTo().performClick()
+            compose.waitUntil(15000) { compose.onAllNodesWithText("План жима лёжа").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("План жима лёжа").performScrollTo().performClick()
             ready(scenario)
             assertEquals("true",js(scenario,"(()=>{document.querySelector('#new-plan').click();const f=document.querySelector('#generator-form');const p={name:'Проверка Android',age:35,bodyweight:90,goal:150,start:'${start}',target:'${start.plusDays(54)}',experience:'trained',recovery:'normal',resultType:'set',resultWeight:132.5,reps:3,technique:'touch',resultDate:'${start.minusDays(2)}',bar:20,step:2.5,equipment:'gym',pain:'no'};for(const [k,v] of Object.entries(p))f.elements[k].value=v;f.elements.resultType.dispatchEvent(new Event('change'));f.elements.reps.value=3;for(const e of f.querySelectorAll('[name=weekday]'))e.checked=[1,3,5].includes(Number(e.value));f.requestSubmit();return !document.querySelector('#preview').hidden;})()"))
             js(scenario,"document.querySelector('#save-plan').click()")

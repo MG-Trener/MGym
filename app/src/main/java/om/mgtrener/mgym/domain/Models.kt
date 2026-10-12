@@ -10,9 +10,14 @@ enum class Exercise(val title: String, val short: String) {
     LAT_PULLDOWN("Тяга верхнего блока", "Верхний блок"),
     TRICEPS("Разгибание рук на блоке", "Трицепс"),
     REAR_DELT("Разведения для задней дельты", "Дельты"),
-    OVERHEAD_TRICEPS("Французское разгибание с гантелью", "Разгибание")
+    OVERHEAD_TRICEPS("Французское разгибание с гантелью", "Разгибание"),
+    LEG_CURL("Сгибание ног в тренажёре", "Сгибание ног"),
+    SPLIT_SQUAT("Сплит-присед с гантелями", "Сплит-присед"),
+    HIP_THRUST("Ягодичный мост с весом", "Мост")
 }
-val trainingExercises = listOf(Exercise.BENCH, Exercise.DEADLIFT, Exercise.SQUAT)
+val trainingExercises = listOf(Exercise.BENCH, Exercise.SQUAT, Exercise.DEADLIFT)
+val Exercise.disciplineKey: String get() = when(this) { Exercise.SQUAT -> "squat"; Exercise.DEADLIFT -> "deadlift"; else -> "bench" }
+val Exercise.planTitle: String get() = when(this) { Exercise.SQUAT -> "План приседа"; Exercise.DEADLIFT -> "План становой тяги"; else -> "План жима лёжа" }
 enum class SetKind(val title: String) {
     WARMUP("Разминка"), WORK("Рабочий"), TOP("Тяжёлый"), BACKOFF("Back-off"), TEST("Тест"), CUSTOM("Другой")
 }

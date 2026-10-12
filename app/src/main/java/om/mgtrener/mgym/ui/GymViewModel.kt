@@ -144,6 +144,7 @@ class GymViewModel(app: Application) : AndroidViewModel(app) {
         action(reloadDraft = true, success = { preview = null; message = "Резервная копия восстановлена" }) { repository.replace(backup); repository.prepareDiary() }
     }
     fun checkUpdate() {
+        if(BuildConfig.STORE_DISTRIBUTION) { notify("Обновления доступны через Google Play"); return }
         if(checkingUpdate) return
         checkingUpdate=true; update=null
         updateWorker.execute {

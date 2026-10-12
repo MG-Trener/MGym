@@ -3,6 +3,9 @@ const fullDate=s=>new Intl.DateTimeFormat('ru-RU',{day:'numeric',month:'long',ye
 const weight=n=>n==null?'по самочувствию':String(n).replace('.',',')+' кг';
 const rest=n=>n>=60?Math.floor(n/60)+':'+String(n%60).padStart(2,'0'):n+' с';
 const accessoryImages={
+  'Сгибание ног в тренажёре':'leg-curl.png',
+  'Сплит-присед с гантелями':'split-squat.png',
+  'Ягодичный мост с весом':'hip-thrust.png',
   'Тяга горизонтального блока':'cable-row.webp',
   'Разгибание рук на блоке':'triceps-pushdown.webp',
   'Тяга гантели в наклоне':'dumbbell-row.webp',
@@ -73,7 +76,7 @@ function renderDetail(){
   box.append(top);
   const content=document.createElement('div');content.className='detail-content';content.append(renderMainTable(s.exercises[0]));
   const aside=document.createElement('aside');aside.className='accessories';
-  if(s.exercises.length>1){const title=document.createElement('h3');title.textContent='После жима';aside.append(title);s.exercises.slice(1).forEach(ex=>aside.append(renderAccessory(ex)))}
+  if(s.exercises.length>1){const title=document.createElement('h3');title.textContent='Подсобная работа';aside.append(title);s.exercises.slice(1).forEach(ex=>aside.append(renderAccessory(ex)))}
   const note=document.createElement('p');note.className='day-note';note.textContent=(plan.algorithm==='bench-natural-2'&&!s.phase?'Этот день уже записан: исходное назначение сохранено. ':'')+s.note;aside.append(note);
   content.append(aside);box.append(content);
 }

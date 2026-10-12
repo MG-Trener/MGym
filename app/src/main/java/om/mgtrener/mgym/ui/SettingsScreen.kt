@@ -43,8 +43,8 @@ fun SettingsScreen(model: GymViewModel) {
         Text("Единицы: кг · тема: графит", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     Panel {
-        Text("Путь к 150 кг", style = MaterialTheme.typography.titleLarge)
-        Text("Генератор работает внутри приложения без интернета. Программу с сайта можно перенести через «Путь к 150 кг → Мои данные → Загрузить копию».")
+        Text("Планы тренировок", style = MaterialTheme.typography.titleLarge)
+        Text("Генератор работает внутри приложения без интернета. Программу с сайта можно перенести через «Планы тренировок → Мои данные → Загрузить копию».")
         OutlinedButton(onClick = {
             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, "https://mg-trener.github.io/Gym-150/".toUri())) }
                 .onFailure { model.notify("Не удалось открыть сайт в браузере") }
@@ -52,13 +52,13 @@ fun SettingsScreen(model: GymViewModel) {
     }
     Panel {
         Text("Резервная копия", style = MaterialTheme.typography.titleLarge)
-        Text("JSON сохраняет дневник, текущий ввод и настройки. Для программ генератора используйте отдельную копию: «Путь к 150 кг → Мои данные». CSV предназначен для таблиц.")
+        Text("JSON сохраняет дневник, текущий ввод и настройки. Для программ генератора используйте отдельную копию: «Планы тренировок → Мои данные». CSV предназначен для таблиц.")
         OutlinedButton(onClick = { exportJson.launch("MGym-backup.json") }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Сохранить JSON / backup") }
         OutlinedButton(onClick = { exportCsv.launch("MGym-sets.csv") }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Экспорт CSV") }
         OutlinedButton(onClick = { importJson.launch(arrayOf("application/json","text/plain","application/octet-stream")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Восстановить из JSON") }
         Text("Файл выбираешь ты. Можно сохранить его на устройство или в выбранное тобой хранилище.", style = MaterialTheme.typography.bodySmall)
     }
-    Panel {
+    if(!BuildConfig.STORE_DISTRIBUTION) Panel {
         Text("Обновление приложения", style = MaterialTheme.typography.titleLarge)
         Text("Версия ${BuildConfig.VERSION_NAME} · жим / тяга / присед")
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
@@ -83,11 +83,16 @@ fun SettingsScreen(model: GymViewModel) {
             }
         }
     }
+    if(BuildConfig.STORE_DISTRIBUTION) Panel { Text("Версия ${BuildConfig.VERSION_NAME}. Обновления — через Google Play.") }
     Panel {
         Text("О MGym", style = MaterialTheme.typography.titleLarge)
         Text("Тренировочные данные хранятся локально на устройстве.")
         Text("MGym сделан на энтузиазме спортсмена и бесплатен для всех желающих. Без регистрации и рекламы. История не отправляется в интернет. Расчётный e1RM — статистическая оценка, а не проверенный максимум.")
+        Text("MGym не является медицинским изделием, не диагностирует, не лечит и не предотвращает заболевания. По вопросам здоровья и допустимости нагрузок обратитесь к медицинскому специалисту.",style=MaterialTheme.typography.bodySmall)
+        OutlinedButton(onClick={ runCatching { context.startActivity(Intent(Intent.ACTION_VIEW,"https://mg-trener.github.io/Gym-150/privacy.html".toUri())) }.onFailure {model.notify("Не удалось открыть политику конфиденциальности")} },modifier=Modifier.fillMaxWidth()) {Text("Конфиденциальность ↗")}
         HorizontalDivider()
+        Text("Любое вознаграждение разработчику за эту программу — исключительно по желанию пользователя. Все функции доступны бесплатно.")
+        Text("Отзывы и предложения можно отправить разработчику в WhatsApp.")
         Text("Разработчик", style = MaterialTheme.typography.titleMedium)
         Text("Михаил Гаврилычев · +7 701 870 93 84", color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedButton(
@@ -97,7 +102,7 @@ fun SettingsScreen(model: GymViewModel) {
                     .onFailure { model.notify("Не удалось открыть WhatsApp") }
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Написать в WhatsApp") }
+        ) { Text("Отзывы и предложения · WhatsApp ↗") }
     }
     TextButton(onClick = { delete = true }, enabled = !model.busy) { Text("Удалить все данные", color = MaterialTheme.colorScheme.error) }
     if(delete) AlertDialog(onDismissRequest = { delete = false }, title = { Text("Удалить весь дневник?") },

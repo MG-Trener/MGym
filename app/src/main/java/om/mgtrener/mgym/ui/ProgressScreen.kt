@@ -24,17 +24,17 @@ import java.time.LocalDate
 import kotlin.math.abs
 
 @Composable
-fun ProgressScreen(data: GymData) {
-    var exerciseIndex by rememberSaveable { mutableIntStateOf(0) }
+fun ProgressScreen(data: GymData, exerciseIndex: Int = 0, onDiscipline: (Int) -> Unit = {}) {
+    var source by rememberSaveable { mutableIntStateOf(0) }
     val exercise = trainingExercises[exerciseIndex]
     var period by rememberSaveable {mutableIntStateOf(0)}
     var metric by rememberSaveable {mutableIntStateOf(0)}
     var view by rememberSaveable {mutableIntStateOf(0)}
     var periodsOpen by remember {mutableStateOf(false)}
     val periods=listOf("Всё время","1 месяц","3 месяца","6 месяцев","1 год")
-    val workouts=remember(data,period,exercise) {
+    val workouts=remember(data,period,exercise,source) {
         val since=LocalDate.now().minusMonths(listOf(0L,1L,3L,6L,12L)[period])
-        data.completed.filter { exercise in it.exercises && (period==0 || !day(it.startedAt).isBefore(since)) }.sortedBy {it.startedAt}
+        data.completed.filter { exercise in it.exercises && (source==0 || (it.sourceKey!=null)==(source==1)) && (period==0 || !day(it.startedAt).isBefore(since)) }.sortedBy {it.startedAt}
     }
     val grouped=remember(data,exercise) {
         data.sets.filter {it.exercise==exercise}.groupBy {it.workoutId}
@@ -42,7 +42,7 @@ fun ProgressScreen(data: GymData) {
     val summaries=remember(workouts,grouped) {workouts.map {it to Analytics.summarize(grouped[it.id].orEmpty())}.filter {it.second.workSets>0}}
     val points=remember(summaries,metric) {
         summaries.mapNotNull {(w,s) ->
-            val value=when(metric) {0->s.e1rm;1->grouped[w.id]?.maxOfOrNull {it.weight};2->s.volume;else->s.reps.toDouble()}
+            val value=when(metric) {0->s.e1rm;1->grouped[w.id]?.maxOfOrNull {it.weight};2->s.volume;3->s.reps.toDouble();else->grouped[w.id]?.filter {it.kind!=SetKind.WARMUP}?.mapNotNull {it.rpe}?.takeIf {it.isNotEmpty()}?.average()}
             value?.let {Triple(w,it,s.estimateSource)}
         }
     }
@@ -52,7 +52,7 @@ fun ProgressScreen(data: GymData) {
     var record by remember(records) {mutableIntStateOf(0)}
     Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(7.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
-            Text("Твой прогресс",style=MaterialTheme.typography.titleLarge)
+            Text("Прогресс",style=MaterialTheme.typography.titleLarge)
             Box {
                 TextButton(onClick={periodsOpen=true},contentPadding=PaddingValues(horizontal=4.dp)) {Text(periods[period]+" ⌄")}
                 DropdownMenu(periodsOpen,{periodsOpen=false}) {periods.forEachIndexed {i,label ->
@@ -60,17 +60,20 @@ fun ProgressScreen(data: GymData) {
                 }}
             }
         }
-        CompactTabs(trainingExercises.map { it.short },exerciseIndex) { exerciseIndex=it }
+        CompactTabs(trainingExercises.map { it.short },exerciseIndex,onDiscipline)
+        CompactTabs(listOf("Все","По плану","Самостоятельно"),source) {source=it}
+        Text("${workouts.size} занятий · ${exercise.title}. Только фактические подходы.",style=MaterialTheme.typography.labelSmall)
         CompactTabs(listOf("График","Рекорды"),view) {view=it}
+        Text(if(metric==4) "Средний RPE рабочих подходов с оценкой; пропуски не считаются нулём." else "e1RM — оценка по весу и повторам, не база генератора и не подтверждённый максимум.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         if(view==0) {
-            CompactTabs(listOf("e1RM","Вес","Объём","Повт."),metric) {metric=it}
+            CompactTabs(listOf("e1RM","Вес","Объём","Повт.","RPE"),metric) {metric=it}
             if(points.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(),contentAlignment=Alignment.Center) {
                 Text("Здесь появится твой прогресс.\nДобавь подходы и заверши тренировку.",style=MaterialTheme.typography.bodyMedium,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
             } else {
                 val p=points[selected.coerceAtMost(points.lastIndex)]
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("${number(p.second)} ${if(metric==3) "повт." else "кг"}",style=MaterialTheme.typography.headlineMedium)
+                        Text("${number(p.second)} ${if(metric==3) "повт." else if(metric==4) "RPE" else "кг"}",style=MaterialTheme.typography.headlineMedium)
                         Text(date(p.first.startedAt),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     val delta=points.last().second-points.first().second
