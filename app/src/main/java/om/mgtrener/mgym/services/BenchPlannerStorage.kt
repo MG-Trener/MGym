@@ -34,7 +34,7 @@ class BenchPlannerStorage(context: Context, private val onExport: () -> Unit, pr
     companion object {
         const val PREFS = "bench-planner-v2"
         const val MAX_BYTES = 2_000_000
-        val KEYS = setOf("mg150-planner-v1", "mg150-planner-v1-before-v2", "mg150-planner-v1-before-v3", "mg150-planner-v1-before-progression", "mg150-planner-v1-before-progression-v3", "mg150-planner-v1-before-periodization", "mg150-planner-v1-before-delete")
+        val KEYS = setOf("mg150-planner-v1", "mg150-planner-v1-before-v2", "mg150-planner-v1-before-v3", "mg150-planner-v1-before-progression", "mg150-planner-v1-before-progression-v3", "mg150-planner-v1-before-periodization", "mg150-planner-v1-before-delete", "mg150-planner-v1-before-forecast")
         fun exportFile(context: Context) = File(context.cacheDir, "bench-planner-export.json")
         fun clear(context: Context) {
             om.mgtrener.mgym.database.GymDatabase(context).use { helper ->

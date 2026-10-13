@@ -20,3 +20,14 @@ main{max-width:1500px;margin:auto;padding:12px clamp(12px,2vw,24px)}.planner-hea
 .check-label{flex-direction:row;align-items:center;margin:12px 0}.check-label input{width:18px;min-height:18px;accent-color:var(--lime)}.info-content button{font-size:12px;margin:8px 0}
 
 .plan-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}#delete-plan{font-size:11px;padding:5px 8px;color:#f4a6a6}.danger{color:#ffc0c0;border-color:#995452}#delete-plan-name{font-weight:700;overflow-wrap:anywhere}
+
+/* Goal, observed strength and forecast remain readable on narrow phones. */
+.forecast-panel {margin:14px 0;padding:16px;border:1px solid var(--line,#33443e);border-radius:16px;background:#15221d;color:#edf5ef;}
+.forecast-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}
+.forecast-grid span,.forecast-grid small {display:block;font-size:.8rem;line-height:1.5;color:#b9cbbf;}
+.forecast-grid strong {display:block;font-size:clamp(1.1rem,2vw,1.5rem);margin:4px 0;overflow-wrap:anywhere;}
+.forecast-panel details {margin-top:12px;font-size:.85rem;}
+.forecast-panel p {line-height:1.6;overflow-wrap:anywhere;}
+.forecast-panel[data-status="behind"],.forecast-panel[data-status="paused"] {border-color:#bf8265;}
+.adjustment-note {font-size:.82rem;border-top:1px solid #33443e;padding-top:10px;margin-bottom:0;}
+@media(max-width:600px){.forecast-grid{grid-template-columns:1fr 1fr;gap:12px;}.forecast-grid>div:last-child{grid-column:1/-1;}.forecast-panel{padding:12px;}.plan-controls{flex-wrap:wrap;}}

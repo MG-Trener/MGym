@@ -6,22 +6,32 @@
   <meta name="theme-color" content="#101615">
   <meta name="description" content="Своя программа лёжа: расчёт нагрузки, фиксированный календарь, журнал подходов и резервные копии. Без фармакологии.">
   <title>MGym · планы жима, приседа и тяги</title>
-  <link rel="stylesheet" href="style.css?v=20261013e">
+  <link rel="stylesheet" href="style.css?v=20261013f">
   <script src="i18n-catalog.js" defer></script><script src="i18n-progress.js" defer></script><script src="i18n.js" defer></script>
-  <script src="generator.js?v=20261013e" defer></script>
+  <script src="generator.js?v=20261013f" defer></script>
   <script src="engine-v2.js?v=20261013a" defer></script>
-  <script src="engine-v3.js?v=20261013e" defer></script>
+  <script src="engine-v3.js?v=20261013f" defer></script>
+
   <script src="mobile.js" defer></script>
   <link rel="stylesheet" href="mobile.css">
-  <script src="planner.js?v=20261013e" defer></script>
-  <script src="app.js?v=20261013e" defer></script>
+  <script src="planner.js?v=20261013f" defer></script>
+  <script src="app.js?v=20261013f" defer></script>
 </head>
 <body>
   <header class="topbar"><div class="brand">MG<span>ym</span></div><div class="topbar-right"><button id="new-plan" type="button">Создать план</button><button id="data-button" type="button">Мои данные</button></div></header>
   <main>
     <section class="planner" aria-labelledby="planner-title">
-      <div class="planner-heading"><div><h1 id="planner-title">План тренировок</h1><div class="plan-controls"><label class="plan-picker">Программа <select id="plan-select" aria-label="Выбрать программу" disabled><option value="">План ещё не создан</option></select></label><button id="delete-plan" type="button" hidden>Удалить план</button></div></div><details class="info"><summary>О плане и расчёте</summary><div class="info-content"><p id="plan-summary"></p><ol id="rules"></ol><p><a href="method.html"  rel="noopener">Методика, возрастные группы и источники ↗</a></p></div></details></div>
+      <div class="planner-heading"><div><h1 id="planner-title">План тренировок</h1><div class="plan-controls"><label class="plan-picker">Программа <select id="plan-select" aria-label="Выбрать программу" disabled><option value="">План ещё не создан</option></select></label><button id="export-pdf" hidden type="button" disabled>Скачать PDF</button><button id="delete-plan" type="button" hidden>Удалить план</button></div></div><details class="info"><summary>О плане и расчёте</summary><div class="info-content"><p id="plan-summary"></p><ol id="rules"></ol><p><a href="method.html"  rel="noopener">Методика, возрастные группы и источники ↗</a></p></div></details></div>
       <label class="plan-picker">Дисциплина <select id="discipline-select" aria-label="Дисциплина"><option value="bench">Жим лёжа</option><option value="squat">Приседания</option><option value="deadlift">Становая тяга</option></select></label><p id="empty-plan" hidden>План ещё не создан. Нажмите «Создать план», чтобы выбрать цель и дни.</p><p id="storage-status" class="status" role="status"></p>
+      <section id="forecast-panel" class="forecast-panel" aria-label="Цель и прогноз" hidden>
+        <div class="forecast-grid">
+          <div><span>Цель</span><strong id="forecast-goal"></strong><small id="forecast-date"></small></div>
+          <div><span>Оценка силы сейчас</span><strong id="forecast-current"></strong><small id="forecast-basis"></small></div>
+          <div><span>Ориентир к дате</span><strong id="forecast-range"></strong><small id="forecast-status" role="status"></small></div>
+        </div>
+        <details><summary>На чём основан прогноз</summary><p id="forecast-explanation"></p></details>
+        <p id="last-adjustment" class="adjustment-note"></p>
+      </section>
       <p id="progression-overview" class="progression-overview" hidden></p>
       <nav class="calendar" aria-label="Календарь тренировок" hidden><div id="weeks" class="weeks" aria-label="Недели плана"></div><div id="sessions" class="sessions" aria-label="Дни выбранной недели"></div></nav>
       <article id="detail" class="detail" aria-live="polite" hidden></article>
