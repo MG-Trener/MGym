@@ -34,7 +34,7 @@ internal object BenchPlannerAssets {
     const val ROOT = "https://$HOST/bench/"
     const val HOME = ROOT + "index.html"
     private val files = setOf("index.html", "method.html", "style.css", "mobile.css", "app.js", "planner.js",
-        "i18n.js", "i18n-catalog.js", "generator.js", "engine-v2.js", "engine-v3.js", "mobile.js", "plan.json") + listOf("cable-row", "dumbbell-row",
+        "i18n.js", "i18n-catalog.js", "i18n-progress.js", "generator.js", "engine-v2.js", "engine-v3.js", "mobile.js", "plan.json") + listOf("cable-row", "dumbbell-row",
         "lat-pulldown", "overhead-triceps-extension", "rear-delt-fly", "triceps-pushdown").map { "assets/$it.webp" } + listOf("leg-curl", "split-squat", "hip-thrust").map { "assets/$it.png" }
     fun path(uri: Uri): String? = uri.path?.removePrefix("/bench/")?.takeIf {
         uri.scheme == "https" && uri.host == HOST && uri.port == -1 && uri.userInfo == null &&

@@ -69,6 +69,32 @@ class BenchPlannerTest {
         }, Press.FINGER))
     }
     private fun usableDialog(scenario: ActivityScenario<MainActivity>): Boolean = js(scenario,"(()=>{const d=document.querySelector('#log-dialog'),b=d.querySelector('.mobile-dialog-body'),s=d.querySelector('button[form=log-form]'),v=visualViewport;const r=d.getBoundingClientRect(),br=b.getBoundingClientRect(),sr=s.getBoundingClientRect();return r.height>(v.height*.8)&&r.height<=v.height&&br.height>80&&sr.bottom<=v.offsetTop+v.height&&d.scrollWidth<=d.clientWidth+1;})()") == "true"
+    @Test fun novicePlanShowsProgressiveWeeksAndFlagsUnsupportedGoal() {
+        check(context.packageName.endsWith(".uitest"))
+        BenchPlannerStorage.clear(context)
+        context.deleteDatabase("mgym.db")
+        val start = java.time.LocalDate.now().with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY))
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            compose.waitUntil(15000) { compose.onAllNodesWithText("План жима лёжа").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("План жима лёжа").performScrollTo().performClick()
+            ready(scenario)
+            assertEquals("true",js(scenario,"(()=>{document.querySelector('#new-plan').click();const f=document.querySelector('#generator-form');const p={name:'Прогрессия 75–100',age:35,bodyweight:80,goal:100,start:'${start}',target:'${start.plusDays(56)}',experience:'novice',recovery:'normal',resultType:'max',resultWeight:75,reps:1,technique:'paused',resultDate:'${start.minusDays(1)}',bar:20,step:2.5,equipment:'gym',pain:'no'};for(const [k,v] of Object.entries(p))f.elements[k].value=v;f.elements.resultType.dispatchEvent(new Event('change'));for(const e of f.querySelectorAll('[name=weekday]'))e.checked=[1,4].includes(Number(e.value));f.requestSubmit();return !document.querySelector('#preview').hidden;})()"))
+            assertEquals("true",js(scenario,"document.querySelector('#preview').innerText.includes('нельзя обоснованно')"))
+            js(scenario,"document.querySelector('#save-plan').click()")
+            val saved=JSONObject(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!).getJSONArray("plans").getJSONObject(0)
+            assertEquals(2,saved.getJSONObject("meta").getInt("templateVersion"))
+            assertEquals("unsupported",saved.getJSONObject("meta").getJSONObject("goalAssessment").getString("status"))
+            assertTrue(saved.getJSONArray("sessions").length()>10)
+            assertEquals("true",js(scenario,"document.querySelector('#plan-summary').textContent.includes('Планируемый контрольный подход')"))
+            val old=JSONObject(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!)
+            old.getJSONArray("plans").getJSONObject(0).getJSONObject("meta").remove("templateVersion")
+            assertTrue(BenchPlannerStorage(context,{},{}).write("mg150-planner-v1",old.toString()))
+            scenario.recreate();ready(scenario)
+            val migrated=JSONObject(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!).getJSONArray("plans").getJSONObject(0)
+            assertEquals(2,migrated.getJSONObject("meta").getInt("templateVersion"))
+            assertNotNull(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1-before-progression"))
+        }
+    }
     @Test fun originalPlanLogDialogHasUsableHeight() {
         check(context.packageName.endsWith(".uitest"))
         BenchPlannerStorage.clear(context)
@@ -170,6 +196,8 @@ class BenchPlannerTest {
         var exportCalled=false; var importCalled=false
         val store=BenchPlannerStorage(context,{exportCalled=true},{importCalled=true})
         assertFalse(store.write("unexpected","secret")); assertNull(store.read("unexpected"))
+        assertTrue(store.write("mg150-planner-v1-before-progression","{\"version\":1}"))
+        assertEquals("{\"version\":1}",store.read("mg150-planner-v1-before-progression"))
         assertFalse(store.write("mg150-planner-v1","a".repeat(BenchPlannerStorage.MAX_BYTES+1)))
         assertTrue(store.exportBackup("{\"version\":1}")); assertTrue(exportCalled)
         assertEquals("{\"version\":1}",BenchPlannerStorage.exportFile(context).readText())

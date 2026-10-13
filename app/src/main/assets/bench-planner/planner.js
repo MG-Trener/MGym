@@ -1,6 +1,6 @@
 'use strict';
 window.Planner=(()=>{
-  const G=window.BenchGenerator, KEY='mg150-planner-v1', BACKUP=KEY+'-before-v3';
+  const G=window.BenchGenerator, KEY='mg150-planner-v1', BACKUP=KEY+'-before-v3', PROGRESSION_BACKUP=KEY+'-before-progression';
   const $=s=>document.querySelector(s), form=$('#generator-form');
   let state={version:1,active:'original',plans:[],logs:{}},original,draft,incoming,lastRaw=null,broken=false,pending=null;
   let discipline=new URLSearchParams(location.search).get('discipline')||'bench';if(!G.disciplines[discipline])discipline='bench';
@@ -28,7 +28,7 @@ window.Planner=(()=>{
     $('#rules').replaceChildren(...plan.rules.map(t=>{const li=document.createElement('li');li.textContent=t;return li;}));
     verified.lastChild.textContent=discipline==='bench'?'Пауза соблюдена, рабочая часть выполнена без боли':'Техника и амплитуда соблюдены, рабочая часть выполнена без боли';renderCalendar();renderDetail();
   }
-  function summary(p){const m=p.meta;return fullDate(p.sessions[0].date)+' — '+fullDate(p.sessions.at(-1).date)+' · '+p.sessions.length+' занятий. '+(m.base===null?'Подбор нагрузки без оценки максимума.':'Оценка силы: '+weight(Number(m.base.toFixed(1)))+' (не проверенный 1ПМ).')+' Группа: '+m.ageGroup+'. '+(['bench-natural-3','strength-natural-4'].includes(p.algorithm)?'Адаптивный расчёт. '+(m.lastAdjustment||''):'Прежний расчёт.');}
+  function summary(p){const m=p.meta,checkpoint=m.goalAssessment?.checkpoint;return fullDate(p.sessions[0].date)+' — '+fullDate(p.sessions.at(-1).date)+' · '+p.sessions.length+' занятий. '+(m.base===null?'Подбор нагрузки без оценки максимума.':'Оценка силы: '+weight(Number(m.base.toFixed(1)))+' (не проверенный 1ПМ).')+' Группа: '+m.ageGroup+'. Цель: '+weight(p.profile.goal)+'. '+(checkpoint?'Планируемый контрольный подход: '+weight(checkpoint.weight)+' × '+checkpoint.reps+'. Итоговый максимум не прогнозируется без фактических тренировок. ':'')+(['bench-natural-3','strength-natural-4'].includes(p.algorithm)?'Адаптивный расчёт. '+(m.lastAdjustment||''):'Прежний расчёт.');}
   function readProfile(){
     const f=new FormData(form),p=Object.fromEntries(f);for(const k of ['age','bodyweight','goal','bar','step','resultWeight','reps'])p[k]=Number(f.get(k));
     p.weekdays=f.getAll('weekday').map(Number);p.resultRpe=f.get('resultRpe')?Number(f.get('resultRpe')):null;p.supervised=f.get('supervised')==='yes';delete p.weekday;p.pain=p.pain==='yes';if(p.resultType==='max')p.reps=1;return p;
@@ -69,10 +69,11 @@ window.Planner=(()=>{
     $('#review-message').textContent=message;$('#apply-review').hidden=!advice.change;$('#review-dialog').showModal();
   }
   function upgradeLibrary(){
-    if(broken||!state.plans.some(p=>!['bench-natural-3','strength-natural-4'].includes(p.algorithm)))return;
+    if(broken||!state.plans.some(p=>!['bench-natural-3','strength-natural-4'].includes(p.algorithm)||p.meta?.templateVersion!==G.TEMPLATE_VERSION))return;
     try{
       let next={...state,plans:state.plans.map(p=>G.upgrade(p,state.logs,localToday()))};next={...next,plans:G.coordinate(next.plans,next.logs,localToday(),next.current)};G.validateState(next);
-      if(!window.MGymStorage.getItem(BACKUP))window.MGymStorage.setItem(BACKUP,JSON.stringify(state));
+      if(state.plans.some(p=>!['bench-natural-3','strength-natural-4'].includes(p.algorithm))&&!window.MGymStorage.getItem(BACKUP))window.MGymStorage.setItem(BACKUP,JSON.stringify(state));
+      if(!window.MGymStorage.getItem(PROGRESSION_BACKUP))window.MGymStorage.setItem(PROGRESSION_BACKUP,JSON.stringify(state));
       if(persist(next))status('Расчёт исправлен · даты и записанные подходы сохранены');
     }catch(e){status('Не удалось обновить старый расчёт: '+e.message,true);}
   }
@@ -146,6 +147,9 @@ window.Planner=(()=>{
   const oldCopy=document.createElement('button');oldCopy.type='button';oldCopy.textContent='Копия до обновления v3';oldCopy.addEventListener('click',()=>{
     try{const raw=window.MGymStorage.getItem(BACKUP);if(!raw){$('#data-message').textContent='Прежних программ на этом устройстве не было.';return;}if(!window.MGymNative.exportBackup(raw))throw Error('Не удалось подготовить копию.');}catch(e){$('#data-message').textContent=e.message;}
   });$('#data-dialog .actions').append(oldCopy);
+  const progressionCopy=document.createElement('button');progressionCopy.type='button';progressionCopy.textContent='Копия до исправления прогрессии';progressionCopy.addEventListener('click',()=>{
+    try{const raw=window.MGymStorage.getItem(PROGRESSION_BACKUP);if(!raw){$('#data-message').textContent='Прежних программ на этом устройстве не было.';return;}if(!window.MGymNative.exportBackup(raw))throw Error('Не удалось подготовить копию.');}catch(e){$('#data-message').textContent=e.message;}
+  });$('#data-dialog .actions').append(progressionCopy);
   let scheduleDraft=null;
   const scheduleButton=document.createElement('button');scheduleButton.type='button';scheduleButton.textContent='Изменить цель и расписание';$('.info-content').append(scheduleButton);
   $('#schedule-weekdays').replaceChildren(...[...form.querySelectorAll('.weekday-options label')].map(e=>e.cloneNode(true)));

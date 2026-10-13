@@ -61,3 +61,41 @@ test('Слабый спортсмен не получает неподъёмны
  const p=G.generate({...profile,resultType:'max',resultWeight:20,reps:1,bar:20,experience:'novice'});assert.ok(p.sessions[0].exercises[0].sets.every(v=>v.weight===null));assert.match(p.rules.join(' '),/легче|лёгкий гриф/);
  assert.equal(G.review({id:'original'},{},'2026-10-12').change,false);
 });
+test('75 кг → цель 100 кг за два месяца: нагрузка меняется по неделям, цель не подменяет силу',()=>{
+ const input={...profile,goal:100,start:'2026-10-13',target:'2026-12-13',resultType:'max',resultWeight:75,reps:1,resultDate:'2026-10-12',weekdays:[2,5],experience:'novice'};
+ const p=G.generate(input),sessions=p.sessions.filter(s=>!['deload','taper','test'].includes(s.phase));
+ const main=sessions.filter(s=>s.phase!=='technique'),weights=[...new Set(main.map(s=>s.exercises[0].sets.find(v=>v.role==='work').weight))];
+ assert.equal(p.meta.goalAssessment.status,'unsupported');assert.equal(p.meta.goalAssessment.requiredGain,33);
+ assert.ok(weights.length>=3,JSON.stringify(weights));assert.ok(main.at(-1).exercises[0].sets.find(v=>v.role==='work').weight>main[0].exercises[0].sets.find(v=>v.role==='work').weight);
+ assert.ok(sessions.some(s=>s.phase==='technique'));assert.ok(p.sessions.some(s=>s.phase==='deload'));assert.ok(p.sessions.some(s=>s.phase==='taper'));
+ assert.ok(p.sessions.flatMap(s=>s.exercises[0].sets).every(v=>v.weight===null||v.weight<75));
+ assert.deepEqual(p.sessions,G.generate({...input,goal:200}).sessions);
+});
+test('70 кг → 200 кг: цель помечена как необоснованная, контроль начинается от текущей силы',()=>{
+ for(const experience of ['novice','trained','advanced'])for(const discipline of ['bench','squat','deadlift']){
+  const p=G.generate({...profile,discipline,experience,goal:200,resultType:'max',resultWeight:70,reps:1});
+  assert.equal(p.meta.goalAssessment.status,'unsupported');assert.equal(p.meta.goalAssessment.requiredGain,186);
+  assert.ok(p.meta.goalAssessment.checkpoint.weight<70);assert.ok(p.sessions.flatMap(s=>s.exercises[0].sets).every(v=>v.weight===null||v.weight<70));
+  assert.match(p.meta.warnings.join(' '),/необоснованно|нельзя обоснованно/);G.validatePlan(p);
+ }
+});
+test('Возраст, стаж, срок, шаг блинов и цель: допустимый календарь и ограниченная прогрессия',()=>{
+ let checked=0;for(const age of [16,35,65,90])for(const experience of ['novice','trained','advanced'])for(const goal of [80,100,200])for(const step of [1,2.5,5])for(const weeks of [8,16]){
+  const input={...profile,age,supervised:true,experience,goal,step,resultType:'max',resultWeight:75,reps:1,start:'2026-10-13',resultDate:'2026-10-12',target:G.iso(Date.parse('2026-10-13T00:00:00Z')+weeks*7*86400000),weekdays:[2,5]};
+  const p=G.generate(input);G.validatePlan(p);checked++;
+  assert.equal(p.meta.base,75);assert.ok(p.sessions.flatMap(s=>s.exercises[0].sets).every(v=>v.weight===null||v.weight<=75));
+  if(experience==='novice'||age===16||age===90)assert.equal(p.sessions.at(-1).title,'Контроль техники');
+  if(goal===200)assert.equal(p.meta.goalAssessment.status,'unsupported');
+  if(experience==='novice'&&step<=2.5){const main=p.sessions.filter(s=>['base','volume'].includes(s.phase));assert.ok(new Set(main.map(s=>s.exercises[0].sets.find(v=>v.role==='work')?.weight)).size>=2);}
+ }assert.equal(checked,216);
+});
+test('Обновление уже сохранённого плана меняет только будущие занятия',()=>{
+ const input={...profile,goal:100,start:'2026-10-13',target:'2026-12-13',resultType:'max',resultWeight:75,reps:1,resultDate:'2026-10-12',weekdays:[2,5],experience:'novice'};
+ const old=G.generate(input),first=structuredClone(old.sessions[0]);delete old.meta.templateVersion;old.meta.adjustments=[{date:first.date,signature:'old',message:'saved',mode:'normal',base:75,beforeBase:75}];
+ for(const s of old.sessions)for(const v of s.exercises[0].sets)if(v.role==='work')v.weight=47.5;
+ const logged=structuredClone(old.sessions[0]),logs={[old.id+'|'+first.id]:{status:'done',feedback:'ok',verified:true,sets:[]}};
+ const updated=G.upgrade(old,logs,'2026-10-20');
+ assert.equal(updated.id,old.id);assert.deepEqual(updated.sessions[0],logged);assert.equal(updated.meta.templateVersion,G.TEMPLATE_VERSION);
+ assert.deepEqual(updated.meta.adjustments,old.meta.adjustments);assert.ok(new Set(updated.sessions.filter(s=>s.date>'2026-10-20'&&['base','volume'].includes(s.phase)).map(s=>s.exercises[0].sets.find(v=>v.role==='work')?.weight)).size>=2);
+ assert.equal(G.upgrade(updated,logs,'2026-10-20'),updated);G.validatePlan(updated);
+});
