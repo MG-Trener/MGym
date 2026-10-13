@@ -2,7 +2,7 @@
 (function(root){
   'use strict';
   const G=typeof module!=='undefined'?require('./engine-v2.js'):root.BenchGenerator;
-  const DAY=86400000, TEMPLATE_VERSION=2, stamp=d=>Date.parse(d+'T00:00:00Z'), add=(d,n)=>G.iso(stamp(d)+n*DAY);
+  const DAY=86400000, TEMPLATE_VERSION=3, stamp=d=>Date.parse(d+'T00:00:00Z'), add=(d,n)=>G.iso(stamp(d)+n*DAY);
   const median=a=>{const b=[...a].sort((x,y)=>x-y);return b.length%2?b[(b.length-1)/2]:(b[b.length/2-1]+b[b.length/2])/2;};
   const clone=x=>JSON.parse(JSON.stringify(x));
   const hasLog=G.hasLog;
@@ -46,14 +46,17 @@
       }else if(deload){phase='deload';title='Разгрузка';count=2;reps=4;pct=.62;target=6;}
       else if(technical){phase='technique';title='Техника · лёгкий жим';count=2;reps=3;pct=.6;target=null;rest=120;}
       else if(conservative){
-        // Three loading weeks, then a deload. A later block starts slightly higher,
-        // but without logged evidence the prescription is capped and repeats as a wave.
-        const block=Math.min(Math.floor((blockWeek-1)/4),2);
-        pct=Math.min(stale?.72:.76,(stale?.60:.65)+block*.04+cycle*.025);
-        reps=block===0?(cycle<2?6:5):(cycle<2?5:4);
-        target=Math.min(7.5,6.5+block*.25+cycle*.25);
-        phase=block===0?'base':'volume';
-        title=block===0?'База · техника и объём':'Постепенная нагрузка';
+        // An old result requires a short return phase, not a permanent 72% ceiling.
+        // The later blocks remain below the unverified baseline until actual sessions
+        // support a new estimate. Every fourth week is still a deload.
+        const block=Math.floor((blockWeek-1)/4);
+        const ceiling=supervised?.72:p.experience==='novice'?.78:stale?.85:.76;
+        const start=stale?.60:.65,increment=stale&&!supervised&&p.experience!=='novice'?.055:.03;
+        pct=Math.min(ceiling,start+block*increment+cycle*.015);
+        reps=block===0?(cycle<2?6:5):pct>=.8?3:cycle<2?5:4;
+        target=Math.min(8,6.5+block*.2+cycle*.25);
+        phase=block===0?'base':pct>=.8?'strength':'volume';
+        title=block===0?'База · техника и объём':pct>=.8?'Силовая работа с запасом':'Постепенная нагрузка';
       }
       else if(sessions.length===0){phase='calibration';title='Пауза · проверка нагрузки';single=true;pct=.8;target=7;reps=4;}
       else if(slot===0&&near){phase='strength';title='Силовой жим';single=true;pct=.83+cycle*.015;target=8;reps=cycle===2?3:4;rest=240;}
@@ -72,7 +75,7 @@
       }
       sessions.push({id:d,date:d,week,phase,title,note:technical?'Лёгкая техника: не превращайте соседние дни в две тяжёлые тренировки.':taper?'Объём снижен. Накопление усталости перед стартом не требуется.':'Соблюдайте целевой RPE. При недовосстановлении отметьте это в факте: следующая нагрузка будет пересмотрена.',exercises});
     }
-    const test=!conservative&&base!==null,opener=load(test?.88:.65);
+    const test=!conservative&&base!==null,opener=load(test?.88:stale&&!supervised&&p.experience!=='novice'?.8:.65);
     sessions.push({id:p.target,date:p.target,week:Math.floor(G.days(p.start,p.target)/7)+1,phase:'test',title:test?'Соревнования · предварительные попытки':'Контроль техники',note:'Вес первой попытки — ориентир по текущим данным, не прогноз декабрьской/будущей силы. Перед стартом проверьте готовность. Цель не назначается автоматически.',exercises:[{name:'Жим лёжа с паузой 1–2 с',load:'Пауза и страховка. Вторая и третья попытки выбираются после предыдущей.',sets:[...warm(opener),make(opener,test?1:5,300,test?'1-я · предварительно':'Контроль с запасом',test?'attempt':'work',7),...(test?[make(null,1,300,'2-я · по факту','attempt',8.5),make(null,1,300,'3-я · по факту','attempt',9)]:[])]}]});
     const requiredGain=base===null?null:Math.round((p.goal/base-1)*100);
     const goalStatus=base===null?'unknown':(p.goal>=base*1.5||(p.goal>base*1.2&&G.days(p.start,p.target)<=84))?'unsupported':p.goal>base*1.1?'ambitious':'moderate';
@@ -83,7 +86,7 @@
     if(p.weekdays.length===1)warnings.push('Одно занятие в неделю: совмещены жим, спина и трицепс; пропуск заметно уменьшает тренировочный объём.');
     if(supervised)warnings.push('Индивидуальное сопровождение обязательно. Назначен контроль техники без автоматических максимальных попыток.');
     if(p.technique==='touch')warnings.push('Результат без паузы — неопределённая оценка. Уточняйте по подтверждённым подходам с паузой.');
-    if(stale)warnings.push('Исходный результат старше 60 дней: назначен плавный возврат.');
+    if(stale)warnings.push('Исходный результат старше 60 дней: первые недели — возврат, затем ограниченное повышение нагрузки с разгрузками. Вес и цель пересматриваются по выполненным подходам и RPE.');
     if(base===null)warnings.push('Исходный вес неизвестен. Подберите лёгкую нагрузку; запись с паузой и RPE 6–9 позволит предложить расчётную базу.');
     else if(base*.6<p.bar)warnings.push('Расчётная лёгкая нагрузка меньше грифа. Для строк «подбор» нужен более лёгкий гриф; текущий вес грифа не назначается насильно.');
     return adaptMovement({id:'p-'+(root.crypto?.randomUUID?.()||Date.now()+'-'+Math.random().toString(36).slice(2)),version:1,algorithm:p.discipline==='bench'?'bench-natural-3':'strength-natural-4',createdAt:new Date().toISOString(),name:(p.name||'Мой план').trim().slice(0,60),profile:p,sessions,meta:{base,estimate:initial,ageGroup:p.age<18?'14–17':p.age<40?'18–39':p.age<60?'40–59':p.age<=85?'60–85':'86–100',relativeGoal:Number((p.goal/p.bodyweight).toFixed(2)),warnings,reviewed:[],adjustments:[],templateVersion:TEMPLATE_VERSION,goalAssessment:{status:goalStatus,requiredGain,checkpoint}},rules:[...warnings,'RPE 8 — примерно 2 повтора в запасе; RPE 6 — около 4. При ≤5 точная оценка силы не используется.','Для пересчёта подходят 1–10 фактических повторов с RPE 6–9, подтверждённой паузой и завершённой тренировкой.','Повышение опирается на два согласованных занятия. За одно применение база растёт не более 2,5%, не чаще раза в неделю.','В подводке объём не повышается. Последние 7 дней — без повышения базы.','Масса тела не задаёт рабочие килограммы: нагрузку определяют текущие результаты. Возраст влияет на исходный объём, далее учитывается фактическая переносимость.','Без фармакологии и бустеров. Максимальная переносимая нагрузка не означает работу до отказа.']},p);

@@ -79,6 +79,24 @@ test('70 кг → 200 кг: цель помечена как необоснов�
   assert.match(p.meta.warnings.join(' '),/необоснованно|нельзя обоснованно/);G.validatePlan(p);
  }
 });
+test('Старый максимум: возврат не держит 18 недель на одном весе',()=>{
+ const input={...profile,goal:100,start:'2026-10-15',target:'2027-02-28',resultType:'max',resultWeight:75,reps:1,resultDate:'2026-07-01',weekdays:[0,4],experience:'trained'};
+ const p=G.generate(input),main=p.sessions.filter(s=>['base','volume','strength'].includes(s.phase));
+ const work=s=>s.exercises[0].sets.find(v=>v.role==='work');
+ assert.equal(work(main[0]).weight,45);
+ assert.ok(work(main.find(s=>s.week===18)).weight>=60);
+ assert.ok(work(main.find(s=>s.week===18)).weight>work(main[0]).weight);
+ assert.ok(p.sessions.some(s=>s.phase==='deload'));
+ assert.ok(p.sessions.flatMap(s=>s.exercises[0].sets).every(v=>v.weight===null||v.weight<75));
+ assert.ok(p.meta.goalAssessment.checkpoint.weight>47.5);
+ const old=structuredClone(p),saved=structuredClone(old.sessions[0]);old.meta.templateVersion=2;
+ for(const s of old.sessions)for(const v of s.exercises[0].sets)if(v.role==='work')v.weight=52.5;
+ const logs={[old.id+'|'+saved.id]:{status:'done',feedback:'ok',verified:true,sets:[]}};
+ const upgraded=G.upgrade(old,logs,'2026-10-20');
+ assert.deepEqual(upgraded.sessions[0],old.sessions[0]);
+ assert.ok(work(upgraded.sessions.find(s=>s.week===18)).weight>=60);
+ assert.equal(upgraded.meta.templateVersion,G.TEMPLATE_VERSION);
+});
 test('Возраст, стаж, срок, шаг блинов и цель: допустимый календарь и ограниченная прогрессия',()=>{
  let checked=0;for(const age of [16,35,65,90])for(const experience of ['novice','trained','advanced'])for(const goal of [80,100,200])for(const step of [1,2.5,5])for(const weeks of [8,16]){
   const input={...profile,age,supervised:true,experience,goal,step,resultType:'max',resultWeight:75,reps:1,start:'2026-10-13',resultDate:'2026-10-12',target:G.iso(Date.parse('2026-10-13T00:00:00Z')+weeks*7*86400000),weekdays:[2,5]};
