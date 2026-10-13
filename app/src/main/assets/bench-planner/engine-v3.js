@@ -2,7 +2,7 @@
 (function(root){
   'use strict';
   const G=typeof module!=='undefined'?require('./engine-v2.js'):root.BenchGenerator;
-  const DAY=86400000, TEMPLATE_VERSION=4, stamp=d=>Date.parse(d+'T00:00:00Z'), add=(d,n)=>G.iso(stamp(d)+n*DAY);
+  const DAY=86400000, TEMPLATE_VERSION=5, stamp=d=>Date.parse(d+'T00:00:00Z'), add=(d,n)=>G.iso(stamp(d)+n*DAY);
   const median=a=>{const b=[...a].sort((x,y)=>x-y);return b.length%2?b[(b.length-1)/2]:(b[b.length/2-1]+b[b.length/2])/2;};
   const clone=x=>JSON.parse(JSON.stringify(x));
   const hasLog=G.hasLog;
@@ -30,7 +30,7 @@
     const stale=base!==null&&!p.baseVerifiedOn&&G.days(p.resultDate,start)>60;
     const uncertain=base===null||!p.baseVerifiedOn&&(stale||p.technique==='touch');
     const continuity=p.trainingContinuity||'unknown';
-    const entryWeeks=p.baseVerifiedOn?0:continuity==='returning'?4:uncertain||p.experience==='novice'?2:0;
+    const entryWeeks=p.baseVerifiedOn?0:continuity==='returning'?4:p.experience==='novice'||uncertain&&continuity!=='regular'?2:0;
     const entryLeft=Math.max(0,entryWeeks-G.days(start,anchor)/7);
     // Future loads are a conditional roadmap, separate from the measured strength base.
     // Extrapolation is limited to one 24-week cycle; logging starts a new anchor.
@@ -78,7 +78,7 @@
       const entry=base!==null&&!p.progressionPaused&&blockWeek<=entryWeeks;
       const taper=!entry&&remaining<=14,deload=!entry&&!taper&&blockWeek%4===0;
       const adjacent=lastHard!==null&&G.days(lastHard,d)<2;
-      const technical=adjacent||(p.discipline==='deadlift'&&slot>0)||(p.weekdays.length>=3&&slot%2===1)||(model.continuity==='returning'&&blockWeek<=2&&slot>0);
+      const technical=adjacent||(p.discipline==='deadlift'&&slot>0)||(p.weekdays.length>=3&&slot>=2)||(model.continuity==='returning'&&blockWeek<=2&&slot>0);
       const cycle=(blockWeek-1)%4,volumeDay=slot>0&&!technical;
       const position=Math.max(0,G.days(blockStart,d)-entryWeeks*7)/Math.max(1,G.days(blockStart,p.target)-14-entryWeeks*7);
       const reference=model.reference(d);
@@ -90,6 +90,9 @@
         reps=6;count=2;target=6.5;
         pct=Math.min(.74,(model.continuity==='returning'?.60:.65)+(blockWeek-1)*.025);
         if(sessions.length===0&&p.experience!=='novice'&&!supervised&&model.continuity!=='returning'){single=true;singlePct=.8;}
+      }
+      else if(sessions.length===0&&uncertain&&model.continuity==='regular'&&p.experience!=='novice'&&!supervised&&!p.progressionPaused&&remaining>14){
+        phase='calibration';title='Пауза · проверка рабочей нагрузки';count=cautious?2:3;reps=4;pct=.75;target=7;single=true;singlePct=.85;
       }
       else if(taper){phase='taper';title='Подводка · техника';count=2;reps=2;pct=.6;target=null;
         if(!technical&&p.experience!=='novice'&&!supervised&&remaining>=5){single=true;singlePct=.88;title='Подводка · контроль';target=7.5;}
@@ -117,8 +120,9 @@
         if(p.weekdays.length===1&&!cautious&&!deload)names.push('Разведения для задней дельты');
         for(const name of names)exercises.push({name,load:'Запас 3–4 повтора. Достигнув верхней границы повторов во всех подходах, добавьте минимальный вес и начните диапазон заново.',sets:Array.from({length:cautious||deload||blockWeek<=2?1:2},()=>make(null,(name===pull?10:12)+(deload?0:Math.min(2,cycle)),90,'Вспомогательное','accessory'))});
       }
+      if(p.weekdays.length>=3&&!['calibration','deload','taper'].includes(phase))title=(technical?'Лёгкий день':volumeDay?'Средний день':'Тяжёлый день')+' · '+title;
       const conditional=reference!==null&&reference>base*1.005;
-      const note=technical?'Лёгкая техника: не превращайте соседние дни в две тяжёлые тренировки.':taper?'Объём снижен. Контрольные веса применяйте только при подтверждённой готовности.':p.progressionPaused?'Прибавки приостановлены. Запишите две переносимые тренировки, чтобы пересмотреть дальнейшую нагрузку.':conditional?'Плановая ступень: переходите к ней только после выполнения предыдущей нагрузки в пределах RPE. При недоборе повторов повторите или снизьте вес и пересмотрите план.':'Выполните подходы в пределах RPE. Прибавка следующей недели зависит от выполнения повторов, техники и восстановления.';
+      const note=technical?'Лёгкий день: сохраняйте запас и технику, не добавляйте тяжёлые подходы.':taper?'Объём снижен. Контрольные веса применяйте только при подтверждённой готовности.':p.progressionPaused?'Прибавки приостановлены. Запишите две переносимые тренировки, чтобы пересмотреть дальнейшую нагрузку.':conditional?'Плановая ступень: переходите к ней только после выполнения предыдущей нагрузки в пределах RPE. При недоборе повторов повторите или снизьте вес и пересмотрите план.':'Выполните подходы в пределах RPE. Прибавка следующей недели зависит от выполнения повторов, техники и восстановления.';
       sessions.push({id:d,date:d,week,phase,title,note,reference,conditional,volumeDay,exercises});
     }
     const test=base!==null&&p.experience!=='novice'&&!supervised&&!uncertain&&!p.progressionPaused;
@@ -130,7 +134,7 @@
     const checkpoint=opener===null?null:{weight:opener,reps:checkReps};
     const trajectory=trajectoryOf(sessions);
     const warnings=['Плановые прибавки условны: переходите к ним после выполнения предыдущих недель в пределах RPE. Записанные результаты уточняют дальнейшую траекторию.','Календарь фиксирован. Изменить дату и дни можно через «Изменить цель и расписание». Записи сохраняются.'];
-    if(goalStatus==='unsupported')warnings.push('Цель требует прироста '+requiredGain+'% и выходит за выбранную траекторию срока и стажа. Промежуточный ориентир цикла: '+milestone+' кг; после контроля стройте следующий цикл.');
+    if(goalStatus==='unsupported')warnings.push('Цель требует прироста '+requiredGain+'% и выходит за выбранную траекторию нагрузки. Это ограничение шаблона, а не прогноз результата. Ориентир нагрузки: '+milestone+' кг; достижимость смотрите в прогнозе по факту.');
     else if(goalStatus==='ambitious')warnings.push('Цель требует прироста '+requiredGain+'%: это напряжённая траектория. Подтверждайте каждую ступень выполненными подходами; при высоком RPE замедляйте прогрессию.');
     if(p.weekdays.length===1)warnings.push('Одно занятие в неделю: совмещены жим, спина и трицепс; пропуск заметно уменьшает тренировочный объём.');
     if(supervised)warnings.push('Индивидуальное сопровождение обязательно. Назначен контроль техники без автоматических максимальных попыток.');
@@ -146,7 +150,7 @@
   function adaptMovement(plan,p){
     if(p.discipline==='bench')return plan;
     const dead=p.discipline==='deadlift', name=dead?'Становая тяга':'Приседания';
-    const words=t=>t.replace(/Жим лёжа с паузой 1–2 с/g,name).replace(/жим с паузой|Объём с паузой/g,'основное движение').replace(/Силовой жим/g,dead?'Силовая тяга':'Силовой присед').replace(/лёгкий жим/g,'лёгкая техника').replace(/Пауза ·/g,'Техника ·').replace(/жим/gi,'движение').replace(/спина и трицепс/g,'подсобные упражнения').replace(/без паузы/g,'с неподтверждённой техникой').replace(/с паузой/g,'с подтверждённой техникой').replace(/Пауза и страховка/g,dead?'Старт с пола без отбива, полная фиксация':'Глубина и фиксация, страховочные упоры').replace(/подтверждённой паузой/g,'подтверждённой техникой');
+    const words=t=>t.replace(/Жим лёжа с паузой 1–2 с/g,name).replace(/жим с паузой|Объём с паузой/g,'основное движение').replace(/Силовой жим/g,dead?'Силовая тяга':'Силовой присед').replace(/лёгкий жим/g,'лёгкая техника').replace(/Пауза ·/g,'Техника ·').replace(/(?<![а-яё])жим(?![а-яё])/giu,'движение').replace(/спина и трицепс/g,'подсобные упражнения').replace(/без паузы/g,'с неподтверждённой техникой').replace(/с паузой/g,'с подтверждённой техникой').replace(/Пауза и страховка/g,dead?'Старт с пола без отбива, полная фиксация':'Глубина и фиксация, страховочные упоры').replace(/подтверждённой паузой/g,'подтверждённой техникой');
     for(const s of plan.sessions){
       s.title=words(s.title);s.note=words(s.note);
       const ex=s.exercises[0];ex.name=name;
@@ -248,12 +252,13 @@
     const over=actual.some((v,i)=>v.rpe!==null&&v.rpe>(s.exercises[0].sets[i].rpeTarget??8)+.5);
     const hard=log.feedback==='hard'||missed||over;
     const recent=completed.filter(x=>G.days(x.date,s.date)<=28).map(x=>({date:x.date,value:evidence(plan,x,logs[plan.id+'|'+x.id])})).filter(x=>x.value!==null).slice(-3);
-    const observation=recent.length?median(recent.map(x=>x.value)):null;
+    const hardObservation=log.feedback==='hard'?observedSession(s,log)?.value:null;
+    const observation=hardObservation??(recent.length?median(recent.map(x=>x.value)):null);
     let base=before,mode='normal',message='',change=false;
     const priorRaises=history.filter(a=>a.date!==s.date&&a.base>a.beforeBase).at(-1);
     const lastTwo=completed.filter(x=>G.days(x.date,s.date)<=21&&x.phase!=='technique').slice(-2);
     const mayRaise=G.days(s.date,plan.profile.target)>7&&(!priorRaises||G.days(priorRaises.date,s.date)>=7);
-    if(hard||log.status==='skipped'){mode='recovery';change=true;message=hard?'Нагрузка оказалась чрезмерной: следующая тренировка легче, на один рабочий подход меньше, отдых длиннее.':'Пропуск: календарь сохранён; ближайшее занятие облегчено без догоняющего объёма.';}
+    if(hard||log.status==='skipped'){if(before!==null&&observation!==null&&observation<before)base=Math.max(before*.95,observation);mode='recovery';change=true;message=hard?'Нагрузка оказалась чрезмерной: следующая тренировка легче, на один рабочий подход меньше, отдых длиннее.':'Пропуск: календарь сохранён; ближайшее занятие облегчено без догоняющего объёма.';}
     else if(!log.verified)return no('Факт сохранён. Подтвердите технику и выполнение рабочей части без боли для оценки силы.');
     else if(plan.profile.progressionPaused&&lastTwo.length===2&&lastTwo.every(x=>completedWork(x,logs[plan.id+'|'+x.id]))){
       change=true;message='Две тренировки перенесены без недовосстановления: возобновляем плановые ступени от текущей подтверждённой базы.';
@@ -269,6 +274,7 @@
         base=Math.floor(Math.min(observation,before*1.025)*100)/100;change=base>before;message=change?'Два занятия подтверждают рост: предлагается ограниченное повышение базы. Рабочие килограммы округляются к доступным блинам.':'Сохраняем нагрузку.';
       }else message='Нагрузка сохранена. Для повышения нужны два согласованных занятия и не менее недели после предыдущей прибавки; последние 7 дней — без повышения.';
     }else message='Запись сохранена. Для оценки нужны 1–10 повторов с RPE 6–9 и подтверждённой техникой. Дополнительные повторы учитываются вместе с RPE.';
+    if(!change&&G.days(s.date,plan.profile.target)>7&&observation!==null&&!plan.profile.baseVerifiedOn&&log.feedback==='ok'&&completedWork(s,log)){change=true;message='Техника подтверждена рабочими подходами. База сохранена; будущий контроль и план уточнены без обязательной прибавки веса.';}
     if(!change)return no(message);
     if(observation!==null)message+=' Оценка силы ≈ '+observation.toFixed(1)+' кг, погрешность индивидуальна.';
     return {base,change,mode,date:s.date,signature:sig,beforeBase:before,message};
@@ -321,6 +327,72 @@
     if(gap>14||last&&logs[plan.id+'|'+last.id]?.feedback==='hard'){const next=sessions.find(s=>s.date>asOf&&!hasLog(logs[plan.id+'|'+s.id]));if(next){for(const v of next.exercises[0].sets)if(v.weight!==null)v.weight=G.round(v.weight*.9,p.step,p.bar);next.note='Возвращение после перерыва или недовосстановления: уменьшенная нагрузка. '+next.note;}}
     return {...plan,algorithm:plan.algorithm,profile:p,sessions,meta:{...plan.meta,ageGroup:fresh.meta.ageGroup,warnings:fresh.meta.warnings,relativeGoal:fresh.meta.relativeGoal,progression:fresh.meta.progression,goalAssessment:fresh.meta.goalAssessment,templateVersion:TEMPLATE_VERSION,revisions:[...(plan.meta.revisions||[]),{date:asOf,oldTarget:plan.profile.target,target,weekdays:p.weekdays}],lastAdjustment:'Цель и расписание изменены '+asOf+'. Выполненные и частично записанные дни сохранены.'}};
   }
-  const api={...G,validate,generate,upgrade,review,applyReview,replan,estimateSet,evidence,hasLog,coordinate,disciplines,TEMPLATE_VERSION};
+  // Forecast is an observation model, NEVER the prescribed training base or the requested goal.
+  // Ranges are transparent sensitivity bands, not calibrated probabilities or confidence intervals.
+  function observedSession(s,log){
+    if(!log||log.status!=='done'||!log.verified||log.feedback==='pain')return null;
+    const sets=s.exercises[0].sets.flatMap((v,i)=>{
+      const a=log.sets[i];
+      if(v.role==='warmup'||v.kind==='Разминка'||!a)return [];
+      const estimate=estimateSet(a.kg,a.reps,a.rpe);
+      return estimate===null?[]:[{kg:a.kg,reps:a.reps,rpe:a.rpe,estimate}];
+    });
+    return sets.length?{date:s.date,value:median(sets.map(v=>v.estimate)),sets,feedback:log.feedback}:null;
+  }
+  function forecast(plan,logs={},asOf=plan.profile.start){
+    G.days(asOf,asOf);
+    const p=plan.profile;
+    const completed=plan.sessions.filter(s=>s.date<=asOf&&logs[plan.id+'|'+s.id]?.status==='done');
+    const recent=completed.filter(s=>G.days(s.date,asOf)<=42).map(s=>observedSession(s,logs[plan.id+'|'+s.id])).filter(Boolean).slice(-8);
+    const last=recent.at(-1),latest=plan.sessions.filter(s=>s.date<=asOf&&hasLog(logs[plan.id+'|'+s.id])).at(-1);
+    const pain=latest&&logs[plan.id+'|'+latest.id].feedback==='pain';
+    const initial=p.resultType==='unknown'?null:p.resultType==='max'?p.resultWeight:estimateSet(p.resultWeight,p.reps,p.resultRpe)??p.resultWeight*(1+p.reps/30);
+    const current=last?median(recent.slice(-3).map(v=>v.value)):initial;
+    const observationDate=last?.date||(initial!==null?p.resultDate:null);
+    const stale=observationDate===null||G.days(observationDate,asOf)>21;
+    const verified=!!last||p.technique==='paused';
+    const remaining=Math.max(0,G.days(asOf,p.target)),past=asOf>p.target;
+    const span=recent.length>1?G.days(recent[0].date,last.date):0;
+    const enough=recent.length>=3&&span>=14&&!stale;
+    // Median of slopes >=7 days apart: same-day sets cannot masquerade as a trend.
+    const slopes=[];
+    if(enough)for(let i=0;i<recent.length;i++)for(let j=i+1;j<recent.length;j++){
+      const days=G.days(recent[i].date,recent[j].date);
+      if(days>=7)slopes.push((recent[j].value-recent[i].value)*7/days);
+    }
+    const rawSlope=slopes.length?median(slopes):null;
+    const cap=current===null?0:current*({novice:.015,trained:.01,advanced:.0075}[p.experience]);
+    const slope=rawSlope===null?null:Math.max(-cap,Math.min(cap,rawSlope));
+    const horizon=Math.min(8,remaining/7);
+    const center=current===null?null:Math.max(p.bar,Math.min(600,current+(slope||0)*horizon));
+    const spread=current===null?0:Math.max(p.step,current*(verified?.04:.08),last?median(recent.slice(-3).map(v=>Math.abs(v.value-current)))*1.5:0);
+    const band=spread+(current===null?0:current*.0025*horizon)+(stale&&current!==null?current*.04:0);
+    const tidy=n=>Math.round(n*10)/10;
+    const range=center===null?null:{low:tidy(Math.max(0,center-band)),high:tidy(Math.min(600,center+band))};
+    let status='insufficient',label='Нужны фактические подходы с RPE';
+    if(pain){status='paused';label='Прогноз приостановлен: отмечена боль';}
+    else if(past){status='finished';label='Дата цели прошла';}
+    else if(current===null){status='insufficient';label='Нужны фактические подходы с RPE';}
+    else if(stale){status='stale';label='Нужна свежая тренировка с RPE';}
+    else if(!verified){status='unverified';label='Нужно подтвердить паузу / технику';}
+    else if(!enough){status='provisional';label='Предварительная оценка: тренд ещё не подтверждён';}
+    else if(remaining>56){status='long_horizon';label='До цели больше 8 недель: прогноз пока на 8 недель';}
+    else if(p.goal>range.high){status='behind';label='Текущий прогресс не подтверждает цель';}
+    else if(p.goal>center){status='stretch';label='Цель под вопросом: нужен дополнительный прогресс';}
+    else {status='on_track';label='По текущим данным идёте к цели';}
+    const reason=last?'Учтено тренировок: '+recent.length+'. Последняя: '+last.date+' — '+last.sets.map(v=>v.kg+' × '+v.reps+' @ RPE '+v.rpe).join('; ')+'.':'Исходный результат: '+(initial===null?'не указан':p.resultWeight+' × '+p.reps+'; RPE '+(p.resultRpe??'не указан'))+'.';
+    const trend=slope===null?'Темп прогресса ещё неизвестен: нужны минимум 3 подтверждённые тренировки за 14 дней.':
+      'Наблюдаемый темп: '+tidy(rawSlope)+' кг/нед.; в прогнозе '+tidy(slope)+' кг/нед. Экстраполяция ограничена 8 неделями.';
+    return {asOf,target:p.target,goal:p.goal,current:current===null?null:tidy(current),range:pain||past?null:range,center:pain||past?null:center===null?null:tidy(center),status,label,verified,stale,count:recent.length,observationDate,slope,rawSlope,reason,trend,remaining,requiredPerWeek:current===null||!remaining?null:tidy(Math.max(0,p.goal-current)/(remaining/7)),basis:enough?'observed-trend':'baseline-only',note:'Диапазон — ориентир по модели, не вероятность успеха и не гарантия рекорда. Плановые килограммы не считаются выполненными.'};
+  }
+  function reconcile(plan,logs,asOf){
+    const advice=review(plan,logs,asOf);
+    const updated=advice.change?applyReview(plan,logs,asOf):plan;
+    const next=updated.sessions.find(s=>s.date>asOf&&!hasLog(logs[plan.id+'|'+s.id]));
+    const before=plan.sessions.find(s=>s.id===next?.id);
+    const describe=s=>s?s.exercises[0].sets.filter(v=>v.role!=='warmup'&&v.kind!=='Разминка').map(v=>({weight:v.weight,reps:v.reps,rest:v.rest,rpe:v.rpeTarget??null})):[];
+    return {plan:updated,forecast:forecast(updated,logs,asOf),changed:advice.change,message:advice.message,nextDate:next?.date||null,before:describe(before),after:describe(next)};
+  }
+  const api={...G,validate,generate,upgrade,review,applyReview,replan,estimateSet,evidence,hasLog,coordinate,disciplines,TEMPLATE_VERSION,forecast,reconcile,observedSession};
   if(typeof module!=='undefined')module.exports=api;else root.BenchGenerator=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
