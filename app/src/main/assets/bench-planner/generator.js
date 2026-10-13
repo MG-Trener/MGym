@@ -16,6 +16,11 @@
     if(!range(p.goal,10,400))errors.push('Цель в жиме: от 10 до 400 кг.');
     if(!['novice','trained','advanced'].includes(p.experience))errors.push('Укажите стаж.');
     if(!['normal','limited'].includes(p.recovery))errors.push('Укажите восстановление.');
+    if(p.trainingContinuity!==undefined&&!['regular','returning','unknown'].includes(p.trainingContinuity))errors.push('Укажите текущую регулярность тренировок.');
+    if(p.progressionPaused!==undefined&&typeof p.progressionPaused!=='boolean')errors.push('Повреждён статус прогрессии.');
+    if(p.progressionWorkWeight!=null&&!range(p.progressionWorkWeight,0,500))errors.push('Повреждено ограничение рабочего веса.');
+    if(p.progressionAnchor){try{if(days(p.start,p.progressionAnchor)<0||days(p.progressionAnchor,p.target)<0)errors.push('Повреждена дата пересчёта прогрессии.');}catch(e){errors.push(e.message);}}
+    if(p.baseVerifiedOn){try{if(days(p.baseVerifiedOn,p.target)<0)errors.push('Подтверждённый результат позже даты контроля.');}catch(e){errors.push(e.message);}}
     if(!['gym','dumbbells','none'].includes(p.equipment))errors.push('Укажите оборудование для дополнительных упражнений.');
     if(![1,1.25,2.5,5].includes(p.step)||!range(p.bar,5,25))errors.push('Проверьте вес грифа и минимальный шаг общего веса.');
     let duration;
@@ -109,10 +114,16 @@
     if(['bench-natural-3','strength-natural-4'].includes(p.algorithm)){
       if(p.profile.blockStart){date(p.profile.blockStart);if(p.profile.blockStart<p.profile.start||p.profile.blockStart>=p.profile.target)throw Error('Повреждено начало блока.');}
       if(p.profile.baseVerifiedOn)date(p.profile.baseVerifiedOn);
+      if(p.meta.progression){
+        const m=p.meta.progression;date(m.anchor);
+        if(!Number.isFinite(m.entryWeeks)||m.entryWeeks<0||m.entryWeeks>4||![m.nominalGain,m.upperGain,m.plannedGain].every(n=>Number.isFinite(n)&&n>=0&&n<=1)||!(m.plannedResult===null||Number.isFinite(m.plannedResult)&&m.plannedResult>=0&&m.plannedResult<=600))throw Error('Повреждена траектория прогрессии.');
+        for(const t of Object.values(m.trajectory||{})){if(t){date(t.date);if(!(t.weight===null||Number.isFinite(t.weight)&&t.weight>=0&&t.weight<=500)||!Number.isInteger(t.reps)||t.reps<1||t.reps>100)throw Error('Повреждены контрольные ступени.');}}
+      }
       if(!Array.isArray(p.meta.adjustments)||p.meta.adjustments.length>650||!Array.isArray(p.meta.revisions||[])||(p.meta.revisions||[]).length>650)throw Error('Повреждена история изменений.');
       for(const a of p.meta.adjustments){date(a.date);if(typeof a.signature!=='string'||a.signature.length>30000||typeof a.message!=='string'||a.message.length>2000||!['normal','recovery'].includes(a.mode)||![a.base,a.beforeBase].every(n=>n===null||Number.isFinite(n)&&n>0&&n<=600))throw Error('Повреждена поправка.');}
     }
     for(const s of p.sessions){
+      if(s.reference!==undefined&&!(s.reference===null||Number.isFinite(s.reference)&&s.reference>0&&s.reference<=600)||s.conditional!==undefined&&typeof s.conditional!=='boolean')throw Error('Повреждено плановое назначение.');
       date(s.date);if(s.id!==s.date||ids.has(s.id)||s.date<=previous||!Number.isInteger(s.week)||s.week<1||s.week>210||typeof s.title!=='string'||s.title.length>100||typeof s.note!=='string'||s.note.length>2000||!Array.isArray(s.exercises)||s.exercises.length<1||s.exercises.length>4)throw Error('Повреждён календарь программы.');ids.add(s.id);previous=s.date;
       for(const ex of s.exercises){if(typeof ex.name!=='string'||ex.name.length>150||typeof ex.load!=='string'||ex.load.length>1500||!Array.isArray(ex.sets)||!ex.sets.length||ex.sets.length>20)throw Error('Повреждено упражнение.');for(const v of ex.sets){if(!(v.weight===null||Number.isFinite(v.weight)&&v.weight>=0&&v.weight<=500)||!Number.isInteger(v.reps)||v.reps<1||v.reps>100||!Number.isFinite(v.rest)||v.rest<0||v.rest>900||typeof v.kind!=='string'||v.kind.length>150||typeof v.rpe!=='boolean')throw Error('Повреждены подходы.');}}
     }return p;

@@ -1,6 +1,6 @@
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..'),dest=path.join(root,'app/src/main/assets/bench-planner');
-const scripts='<script src="i18n-catalog.js" defer></script><script src="i18n.js" defer></script>';
+const scripts='<script src="i18n-catalog.js" defer></script><script src="i18n-progress.js" defer></script><script src="i18n.js" defer></script>';
 const index=path.join(dest,'index.html');let html=fs.readFileSync(index,'utf8');
 if(!html.includes('src="i18n.js"'))html=html.replace('<script src="generator.js',scripts+'\n  <script src="generator.js');
 html=html.replaceAll('href="privacy.html"','href="https://mgym.mg-trener.com/privacy.html"').replaceAll('href="support.html"','href="https://mgym.mg-trener.com/support.html"');

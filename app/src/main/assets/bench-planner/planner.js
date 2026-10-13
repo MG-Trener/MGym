@@ -1,6 +1,6 @@
 'use strict';
 window.Planner=(()=>{
-  const G=window.BenchGenerator, KEY='mg150-planner-v1', BACKUP=KEY+'-before-v3', OLD_PROGRESSION_BACKUP=KEY+'-before-progression', PROGRESSION_BACKUP=KEY+'-before-progression-v3';
+  const G=window.BenchGenerator, KEY='mg150-planner-v1', BACKUP=KEY+'-before-v3', OLD_PROGRESSION_BACKUP=KEY+'-before-progression', PREVIOUS_PROGRESSION_BACKUP=KEY+'-before-progression-v3', PROGRESSION_BACKUP=KEY+'-before-periodization';
   const $=s=>document.querySelector(s), form=$('#generator-form');
   let state={version:1,active:'original',plans:[],logs:{}},original,draft,incoming,lastRaw=null,broken=false,pending=null;
   let discipline=new URLSearchParams(location.search).get('discipline')||'bench';if(!G.disciplines[discipline])discipline='bench';
@@ -25,11 +25,15 @@ window.Planner=(()=>{
     const today=localToday();selected=plan.sessions.find(s=>'#'+s.id===location.hash)?.id||plan.sessions.find(s=>s.date>=today)?.id||plan.sessions.at(-1).id;
     const select=$('#plan-select');select.replaceChildren(...(discipline==='bench'?[new Option('Исходный план жима · 2026','original')]:[]),...state.plans.filter(p=>(p.profile.discipline||'bench')===discipline).map(p=>new Option(p.name+' · '+p.sessions.at(-1).date,p.id)));select.value=id;
     $('#plan-summary').textContent=plan.meta?summary(plan):'Исходный план на 150 кг. 132,5 × 3 выполнялись без паузы; максимум с паузой не подтверждён.';
+    const trajectory=plan.meta?.progression?.trajectory,overview=$('#progression-overview');
+    overview.hidden=!trajectory?.first||!trajectory?.last;
+    if(!overview.hidden)overview.textContent=trajectoryText(plan)+' · Ступени подтверждаются по RPE';
     const notices=plan.meta?plan.meta.warnings.slice(2,5):plan.rules.slice(0,2);
     $('#rules').replaceChildren(...notices.map(t=>{const li=document.createElement('li');li.textContent=t;return li;}));
     verified.lastChild.textContent=discipline==='bench'?'Пауза соблюдена, рабочая часть выполнена без боли':'Техника и амплитуда соблюдены, рабочая часть выполнена без боли';renderCalendar();renderDetail();
   }
-  function summary(p){const m=p.meta,checkpoint=m.goalAssessment?.checkpoint;return p.sessions.length+' занятий · '+fullDate(p.sessions[0].date)+' — '+fullDate(p.sessions.at(-1).date)+' · Оценка силы: '+(m.base===null?'неизвестна':weight(Number(m.base.toFixed(1))))+'; цель: '+weight(p.profile.goal)+'. '+(checkpoint?'Контроль: '+weight(checkpoint.weight)+' × '+checkpoint.reps+'. ':'')+'Веса уточняются по записанным тренировкам.';}
+  function trajectoryText(p){const t=p.meta?.progression?.trajectory;return t?.first&&t?.last?'Рабочие подходы: '+weight(t.first.weight)+' × '+t.first.reps+' → '+weight(t.last.weight)+' × '+t.last.reps:'';}
+  function summary(p){const m=p.meta,g=m.goalAssessment,checkpoint=g?.checkpoint;return p.sessions.length+' занятий · '+fullDate(p.sessions[0].date)+' — '+fullDate(p.sessions.at(-1).date)+' · Исходная оценка: '+(m.base===null?'неизвестна':weight(Number(m.base.toFixed(1))))+'; Цель: '+weight(p.profile.goal)+'. '+(g?.milestone?'Плановый ориентир цикла: '+weight(g.milestone)+'. ':'')+(checkpoint?'Контроль при готовности: '+weight(checkpoint.weight)+' × '+checkpoint.reps+'. ':'')+trajectoryText(p);}
   function readProfile(){
     const f=new FormData(form),p=Object.fromEntries(f);for(const k of ['age','bodyweight','goal','bar','step','resultWeight','reps'])p[k]=Number(f.get(k));
     p.weekdays=f.getAll('weekday').map(Number);p.resultRpe=f.get('resultRpe')?Number(f.get('resultRpe')):null;p.supervised=f.get('supervised')==='yes';delete p.weekday;p.pain=p.pain==='yes';if(p.resultType==='max')p.reps=1;return p;
@@ -88,7 +92,7 @@ window.Planner=(()=>{
     const candidates=state.plans.filter(p=>(p.profile.discipline||'bench')===d);
     const chosen=candidates.find(p=>p.id===state.active)||candidates.find(p=>p.id===state.current?.[d])||candidates.at(-1);
     if(chosen){activate(chosen.id);return;}if(d==='bench'){activate('original');return;}
-    $('#plan-select').replaceChildren(new Option('План ещё не создан',''));$('#plan-summary').textContent='Создайте персональную программу: '+G.disciplines[d];$('#rules').replaceChildren();$('#empty-plan').hidden=false;$('#weeks').parentElement.hidden=true;$('#detail').hidden=true;
+    $('#plan-select').replaceChildren(new Option('План ещё не создан',''));$('#plan-summary').textContent='Создайте персональную программу: '+G.disciplines[d];$('#rules').replaceChildren();$('#progression-overview').hidden=true;$('#empty-plan').hidden=false;$('#weeks').parentElement.hidden=true;$('#detail').hidden=true;
   }
   function updateTechnique(){const d=form.elements.discipline.value;const options=form.elements.technique.options;options[0].textContent=d==='bench'?'С паузой 1–2 секунды':d==='squat'?'Глубина и фиксация соблюдены':'С пола, без отбива, полная фиксация';options[1].textContent=d==='bench'?'Без паузы / не уверен':'Техника не подтверждена';}
   $('#discipline-select').addEventListener('change',e=>chooseDiscipline(e.target.value));
@@ -148,9 +152,12 @@ window.Planner=(()=>{
   const oldCopy=document.createElement('button');oldCopy.type='button';oldCopy.textContent='Копия до обновления v3';oldCopy.addEventListener('click',()=>{
     try{const raw=window.MGymStorage.getItem(BACKUP);if(!raw){$('#data-message').textContent='Прежних программ на этом устройстве не было.';return;}if(!window.MGymNative.exportBackup(raw))throw Error('Не удалось подготовить копию.');}catch(e){$('#data-message').textContent=e.message;}
   });$('#data-dialog .actions').append(oldCopy);
-  const progressionCopy=document.createElement('button');progressionCopy.type='button';progressionCopy.textContent='Копия до обновления 0.5.2';progressionCopy.addEventListener('click',()=>{
+  const progressionCopy=document.createElement('button');progressionCopy.type='button';progressionCopy.textContent='Копия до обновления 0.6.0';progressionCopy.addEventListener('click',()=>{
     try{const raw=window.MGymStorage.getItem(PROGRESSION_BACKUP);if(!raw){$('#data-message').textContent='Прежних программ на этом устройстве не было.';return;}if(!window.MGymNative.exportBackup(raw))throw Error('Не удалось подготовить копию.');}catch(e){$('#data-message').textContent=e.message;}
   });$('#data-dialog .actions').append(progressionCopy);
+  const priorPeriodCopy=document.createElement('button');priorPeriodCopy.type='button';priorPeriodCopy.textContent='Копия до обновления 0.5.2';priorPeriodCopy.addEventListener('click',()=>{
+    try{const raw=window.MGymStorage.getItem(PREVIOUS_PROGRESSION_BACKUP);if(!raw){$('#data-message').textContent='Прежних программ на этом устройстве не было.';return;}if(!window.MGymNative.exportBackup(raw))throw Error('Не удалось подготовить копию.');}catch(e){$('#data-message').textContent=e.message;}
+  });$('#data-dialog .actions').append(priorPeriodCopy);
   const previousProgressionCopy=document.createElement('button');previousProgressionCopy.type='button';previousProgressionCopy.textContent='Копия до обновления 0.5.1';previousProgressionCopy.addEventListener('click',()=>{
     try{const raw=window.MGymStorage.getItem(OLD_PROGRESSION_BACKUP);if(!raw){$('#data-message').textContent='Прежних программ на этом устройстве не было.';return;}if(!window.MGymNative.exportBackup(raw))throw Error('Не удалось подготовить копию.');}catch(e){$('#data-message').textContent=e.message;}
   });$('#data-dialog .actions').append(previousProgressionCopy);

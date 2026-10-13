@@ -2,7 +2,7 @@
 (function(root){
   'use strict';
   const G=typeof module!=='undefined'?require('./engine-v2.js'):root.BenchGenerator;
-  const DAY=86400000, TEMPLATE_VERSION=3, stamp=d=>Date.parse(d+'T00:00:00Z'), add=(d,n)=>G.iso(stamp(d)+n*DAY);
+  const DAY=86400000, TEMPLATE_VERSION=4, stamp=d=>Date.parse(d+'T00:00:00Z'), add=(d,n)=>G.iso(stamp(d)+n*DAY);
   const median=a=>{const b=[...a].sort((x,y)=>x-y);return b.length%2?b[(b.length-1)/2]:(b[b.length/2-1]+b[b.length/2])/2;};
   const clone=x=>JSON.parse(JSON.stringify(x));
   const hasLog=G.hasLog;
@@ -15,81 +15,132 @@
     return kg/(ratios[lo]+(ratios[hi]-ratios[lo])*(index-lo));
   }
   function validate(p){return G.validate(p,true);}
+  function setRatio(reps,rpe){
+    const index=reps+10-rpe-1,lo=Math.floor(index),hi=Math.ceil(index);
+    return ratios[lo]+(ratios[hi]-ratios[lo])*(index-lo);
+  }
+  function trajectoryOf(sessions){
+    const working=sessions.filter(s=>!s.volumeDay&&['calibration','base','volume','strength'].includes(s.phase));
+    const describe=s=>{const v=s?.exercises[0].sets.find(v=>v.role==='work');return v?{date:s.date,weight:v.weight,reps:v.reps}:null;};
+    return {first:describe(working[0]),last:describe(working.at(-1))};
+  }
+  function progressionModel(p,base){
+    const start=p.blockStart||p.start,anchor=p.progressionAnchor||(p.baseVerifiedOn>start?p.baseVerifiedOn:start);
+    const supervised=p.age<18||p.age>85;
+    const stale=base!==null&&!p.baseVerifiedOn&&G.days(p.resultDate,start)>60;
+    const uncertain=base===null||!p.baseVerifiedOn&&(stale||p.technique==='touch');
+    const continuity=p.trainingContinuity||'unknown';
+    const entryWeeks=p.baseVerifiedOn?0:continuity==='returning'?4:uncertain||p.experience==='novice'?2:0;
+    const entryLeft=Math.max(0,entryWeeks-G.days(start,anchor)/7);
+    // Future loads are a conditional roadmap, separate from the measured strength base.
+    // Extrapolation is limited to one 24-week cycle; logging starts a new anchor.
+    const span=Math.max(0,Math.min(24,(G.days(anchor,p.target)-14)/7)-entryLeft);
+    const loadingWeeks=span*.75;
+    let separatedDays=1;
+    for(let mask=1;mask<(1<<p.weekdays.length);mask++){
+      const selected=p.weekdays.filter((_,i)=>mask&(1<<i));
+      if(selected.every((d,i)=>selected.slice(i+1).every(e=>![1,6].includes(Math.abs(d-e)))))separatedDays=Math.max(separatedDays,selected.length);
+    }
+    const rate={novice:.015,trained:.006,advanced:.004}[p.experience]*(separatedDays===1?.6:1)*(p.recovery==='limited'?.7:1);
+    const nominal=Math.min({novice:.35,trained:.18,advanced:.12}[p.experience],loadingWeeks*rate);
+    const upper=Math.min({novice:.5,trained:.27,advanced:.18}[p.experience],loadingWeeks*rate*1.5);
+    const requested=base===null?null:Math.max(0,p.goal/base-1);
+    const tolerance=base===null?0:Math.min(p.step/base,upper*.2);
+    const status=base===null?'unknown':requested<=nominal+tolerance?'moderate':requested<=upper+tolerance?'ambitious':'unsupported';
+    const gain=base===null||p.progressionPaused||p.goal<=base?0:status==='unsupported'?nominal:Math.min(requested,upper+tolerance);
+    const result=base===null?null:Math.min(540,base*(1+gain));
+    const reference=date=>{
+      if(base===null)return null;
+      const weeks=Math.max(0,Math.min(24,(Math.min(stamp(date),stamp(p.target)-14*DAY)-stamp(anchor))/DAY/7)-entryLeft);
+      return Math.min(540,base*(1+gain*(span?Math.min(1,weeks/span):0)));
+    };
+    return {start,anchor,supervised,stale,uncertain,continuity,entryWeeks,loadingWeeks,rate,nominal,upper,status,gain,result,reference};
+  }
   function generate(profile,override=undefined){
     const errors=validate(profile);if(errors.length)throw Error(errors.join('\n'));
     const p=clone(profile); p.discipline=p.discipline||'bench'; const unknown=p.resultType==='unknown', supervised=p.age<18||p.age>85;
     const initial=unknown?null:p.resultType==='max'?p.resultWeight:estimateSet(p.resultWeight,p.reps,p.resultRpe)??(p.reps===1?p.resultWeight:p.resultWeight*(1+p.reps/30));
     const base=override===undefined?initial:override;
     if(base!==null&&(!Number.isFinite(base)||base<p.bar||base>600))throw Error('Некорректная оценка силы.');
-    const cautious=p.recovery==='limited'||p.age>=60||supervised||p.experience==='novice';
-    const stale=!unknown&&G.days(p.baseVerifiedOn||p.resultDate,p.blockStart||p.start)>60;
-    const conservative=p.experience==='novice'||supervised||stale;
-    const round=n=>G.round(n,p.step,p.bar), load=f=>base===null||base*f<p.bar?null:round(base*f);
+    const model=progressionModel(p,base),{stale,uncertain,entryWeeks}=model;
+    const cautious=p.recovery==='limited'||p.age>=60||supervised;
+    const round=n=>G.round(n,p.step,p.bar);
+    const load=(reference,f)=>reference===null||reference*f<p.bar?null:Math.min(500,round(reference*f));
     const make=(weight,reps,rest,kind,role='work',rpeTarget=null)=>({weight,reps,rest,kind,role,rpe:rpeTarget!==null,rpeTarget});
     const warm=top=>top===null?[make(null,8,60,'Разминка','warmup')]:[...new Set([p.bar,round(top*.45),round(top*.7),round(top*.87)])].filter(w=>w<top).map((w,i)=>make(w,[10,6,3,1][i],i<2?60:120,'Разминка','warmup'));
     const sessions=[],counts={};let lastHard=null;
     const blockStart=p.blockStart||p.start;
     for(let d=blockStart;d<p.target;d=add(d,1)){
       const remaining=G.days(d,p.target),week=Math.floor(G.days(p.start,d)/7)+1;
-      if(!p.weekdays.includes(new Date(stamp(d)).getUTCDay())||remaining<=(cautious?4:2))continue;
+      if(!p.weekdays.includes(new Date(stamp(d)).getUTCDay())||remaining<=((cautious||p.experience==='novice')?4:2))continue;
       const slot=counts[week]||0;counts[week]=slot+1;
       const blockWeek=Math.floor(G.days(blockStart,d)/7)+1;
-      const taper=remaining<=14,deload=!taper&&blockWeek%4===0;
+      const entry=base!==null&&!p.progressionPaused&&blockWeek<=entryWeeks;
+      const taper=!entry&&remaining<=14,deload=!entry&&!taper&&blockWeek%4===0;
       const adjacent=lastHard!==null&&G.days(lastHard,d)<2;
-      const technical=adjacent||(p.discipline==='deadlift'&&slot>0)||(p.weekdays.length>=3&&slot%2===1)||(conservative&&p.weekdays.length===2&&slot>0);
-      const near=remaining<=56,cycle=(blockWeek-1)%4;
-      let phase='base',title='База · жим с паузой',count=cautious?2:p.weekdays.length===1?4:3,reps=near?4:6,pct=near?.74:.68+cycle*.015,target=cautious?7:7.5,rest=180;
-      let single=false;
+      const technical=adjacent||(p.discipline==='deadlift'&&slot>0)||(p.weekdays.length>=3&&slot%2===1)||(model.continuity==='returning'&&blockWeek<=2&&slot>0);
+      const cycle=(blockWeek-1)%4,volumeDay=slot>0&&!technical;
+      const position=Math.max(0,G.days(blockStart,d)-entryWeeks*7)/Math.max(1,G.days(blockStart,p.target)-14-entryWeeks*7);
+      const reference=model.reference(d);
+      let phase='base',title='База · рабочий объём',count=cautious||p.experience==='novice'&&blockWeek<=4?2:3,reps=6,pct=0,target=7,rest=180;
+      let single=false,singlePct=.8;
       if(base===null){phase='calibration';title='Подбор нагрузки';pct=0;reps=5;count=2;target=6;}
+      else if(entry&&!technical){
+        phase='calibration';title=model.continuity==='returning'?'Возвращение · проверка нагрузки':'Вход · проверка нагрузки';
+        reps=6;count=2;target=6.5;
+        pct=Math.min(.74,(model.continuity==='returning'?.60:.65)+(blockWeek-1)*.025);
+        if(sessions.length===0&&p.experience!=='novice'&&!supervised&&model.continuity!=='returning'){single=true;singlePct=.8;}
+      }
       else if(taper){phase='taper';title='Подводка · техника';count=2;reps=2;pct=.6;target=null;
-        if(!technical&&!conservative&&remaining>=5){single=true;pct=remaining>=8?.88:.85;title='Подводка · контроль';target=7.5;}
+        if(!technical&&p.experience!=='novice'&&!supervised&&remaining>=5){single=true;singlePct=.88;title='Подводка · контроль';target=7.5;}
       }else if(deload){phase='deload';title='Разгрузка';count=2;reps=4;pct=.62;target=6;}
       else if(technical){phase='technique';title='Техника · лёгкий жим';count=2;reps=3;pct=.6;target=null;rest=120;}
-      else if(conservative){
-        // An old result requires a short return phase, not a permanent 72% ceiling.
-        // The later blocks remain below the unverified baseline until actual sessions
-        // support a new estimate. Every fourth week is still a deload.
-        const block=Math.floor((blockWeek-1)/4);
-        const ceiling=supervised?.72:p.experience==='novice'?.78:stale?.85:.76;
-        const start=stale?.60:.65,increment=stale&&!supervised&&p.experience!=='novice'?.055:.03;
-        pct=Math.min(ceiling,start+block*increment+cycle*.015);
-        reps=block===0?(cycle<2?6:5):pct>=.8?3:cycle<2?5:4;
-        target=Math.min(8,6.5+block*.2+cycle*.25);
-        phase=block===0?'base':pct>=.8?'strength':'volume';
-        title=block===0?'База · техника и объём':pct>=.8?'Силовая работа с запасом':'Постепенная нагрузка';
+      else if(p.progressionPaused){phase='base';title='Закрепление нагрузки';reps=5;count=2;target=6.5;pct=Math.min(.68,p.progressionWorkWeight!=null?p.progressionWorkWeight/base:.68);rest=240;}
+      else {
+        if(position<.35){phase='base';title=volumeDay?'База · объёмный день':'База · рабочий объём';reps=volumeDay?8-cycle:6-(cycle===2?1:0);target=6.5+cycle*.5;}
+        else if(position<.75){phase='volume';title=volumeDay?'Объём с паузой':'Развитие силы · объём';reps=volumeDay?6-(cycle===2?1:0):5-(cycle>0?1:0);target=7+cycle*.5;}
+        else {phase='strength';title=volumeDay?'Силовой блок · объём':'Силовой блок · основной день';reps=volumeDay?5-(cycle>0?1:0):3-(cycle===2?1:0);target=volumeDay?7+cycle*.5:Math.min(8,7.5+cycle*.5);rest=240;
+          if(!volumeDay&&p.experience!=='novice'&&!supervised){single=true;singlePct=setRatio(1,7.5);}
+        }
+        if(cautious)target=Math.min(7.5,target);
+        pct=setRatio(reps,target);
       }
-      else if(sessions.length===0){phase='calibration';title='Пауза · проверка нагрузки';single=true;pct=.8;target=7;reps=4;}
-      else if(slot===0&&near){phase='strength';title='Силовой жим';single=true;pct=.83+cycle*.015;target=8;reps=cycle===2?3:4;rest=240;}
-      else {phase='volume';title='Объём с паузой';pct=(near?.73:.68)+cycle*.015;reps=near?5:6;}
       if(adjacent&&base!==null){phase='technique';title='Техника · соседний день';single=false;pct=.55;count=2;reps=3;target=null;rest=120;}
       if(!technical)lastHard=d;
-      const work=Array.from({length:count},()=>make(load(single?(taper?.7:.73):pct),reps,rest,'Рабочий','work',target));
-      const main=single?[make(load(pct),1,300,'Контрольный','single',target),...work]:work;
-      const exercises=[{name:'Жим лёжа с паузой 1–2 с',load:'Разминка 5–8 мин. RPE оценивайте после выполненного подхода. Рабочие веса уточняются по факту.',sets:[...warm(main[0].weight),...main]}];
+      const work=Array.from({length:count},()=>make(load(reference,pct),reps,rest,'Рабочий','work',target));
+      const main=single?[make(load(reference,singlePct),1,300,'Контрольный','single',7.5),...work]:work;
+      const exercises=[{name:'Жим лёжа с паузой 1–2 с',load:'Разминка 5–8 мин. RPE — предел усилия. Если вес тяжелее заданного RPE, уменьшите его и запишите факт.',sets:[...warm(main[0].weight),...main]}];
       if(p.equipment!=='none'&&!taper){
         const pull=p.equipment==='dumbbells'?'Тяга гантели в наклоне':slot%2?'Тяга верхнего блока':'Тяга горизонтального блока';
         const tri=p.equipment==='dumbbells'?'Французское разгибание с гантелью':'Разгибание рук на блоке';
         const names=[pull,technical||deload?'Разведения для задней дельты':tri];
         if(p.weekdays.length===1&&!cautious&&!deload)names.push('Разведения для задней дельты');
-        for(const name of names)exercises.push({name,load:'Подберите вес с запасом 3–4 повтора. Без боли и отказа.',sets:Array.from({length:cautious||deload?1:2},()=>make(null,name===pull?10:12,90,'Вспомогательное','accessory'))});
+        for(const name of names)exercises.push({name,load:'Запас 3–4 повтора. Достигнув верхней границы повторов во всех подходах, добавьте минимальный вес и начните диапазон заново.',sets:Array.from({length:cautious||deload||blockWeek<=2?1:2},()=>make(null,(name===pull?10:12)+(deload?0:Math.min(2,cycle)),90,'Вспомогательное','accessory'))});
       }
-      sessions.push({id:d,date:d,week,phase,title,note:technical?'Лёгкая техника: не превращайте соседние дни в две тяжёлые тренировки.':taper?'Объём снижен. Накопление усталости перед стартом не требуется.':'Соблюдайте целевой RPE. При недовосстановлении отметьте это в факте: следующая нагрузка будет пересмотрена.',exercises});
+      const conditional=reference!==null&&reference>base*1.005;
+      const note=technical?'Лёгкая техника: не превращайте соседние дни в две тяжёлые тренировки.':taper?'Объём снижен. Контрольные веса применяйте только при подтверждённой готовности.':p.progressionPaused?'Прибавки приостановлены. Запишите две переносимые тренировки, чтобы пересмотреть дальнейшую нагрузку.':conditional?'Плановая ступень: переходите к ней только после выполнения предыдущей нагрузки в пределах RPE. При недоборе повторов повторите или снизьте вес и пересмотрите план.':'Выполните подходы в пределах RPE. Прибавка следующей недели зависит от выполнения повторов, техники и восстановления.';
+      sessions.push({id:d,date:d,week,phase,title,note,reference,conditional,volumeDay,exercises});
     }
-    const test=!conservative&&base!==null,opener=load(test?.88:stale&&!supervised&&p.experience!=='novice'?.8:.65);
-    sessions.push({id:p.target,date:p.target,week:Math.floor(G.days(p.start,p.target)/7)+1,phase:'test',title:test?'Соревнования · предварительные попытки':'Контроль техники',note:'Вес первой попытки — ориентир по текущим данным, не прогноз декабрьской/будущей силы. Перед стартом проверьте готовность. Цель не назначается автоматически.',exercises:[{name:'Жим лёжа с паузой 1–2 с',load:'Пауза и страховка. Вторая и третья попытки выбираются после предыдущей.',sets:[...warm(opener),make(opener,test?1:5,300,test?'1-я · предварительно':'Контроль с запасом',test?'attempt':'work',7),...(test?[make(null,1,300,'2-я · по факту','attempt',8.5),make(null,1,300,'3-я · по факту','attempt',9)]:[])]}]});
+    const test=base!==null&&p.experience!=='novice'&&!supervised&&!uncertain&&!p.progressionPaused;
+    const finalReference=model.reference(p.target),checkReps=test?1:base===null?5:3;
+    const opener=load(finalReference,test?.92:setRatio(checkReps,supervised?7:8));
+    sessions.push({id:p.target,date:p.target,week:Math.floor(G.days(p.start,p.target)/7)+1,phase:'test',title:test?'Контроль силы · условные попытки':supervised?'Контроль техники':'Контроль прогресса',note:'Плановый контроль зависит от выполненных предыдущих недель. Если прибавки не подтверждены, выберите вес по текущей готовности и RPE.',reference:finalReference,conditional:true,exercises:[{name:'Жим лёжа с паузой 1–2 с',load:'Пауза и страховка. Это контрольный подход, а не обещанный рекорд.',sets:[...warm(opener),make(opener,checkReps,300,test?'1-я · при готовности':'Контроль с запасом',test?'attempt':'work',test?8:supervised?7:8),...(test?[make(null,1,300,'2-я · по факту','attempt',8.5),make(null,1,300,'3-я · по факту','attempt',9)]:[])]}]});
     const requiredGain=base===null?null:Math.round((p.goal/base-1)*100);
-    const goalStatus=base===null?'unknown':(p.goal>=base*1.5||(p.goal>base*1.2&&G.days(p.start,p.target)<=84))?'unsupported':p.goal>base*1.1?'ambitious':'moderate';
-    const checkpoint=opener===null?null:{weight:opener,reps:test?1:5};
-    const warnings=['Расчёт v3: цель не завышает текущую силу. Рост зависит от выполненных тренировок и восстановления.','Календарь фиксирован. Изменить дату и дни можно через «Изменить цель и расписание». Записи сохраняются.'];
-    if(goalStatus==='unsupported')warnings.push('Запрошенная цель требует прироста '+requiredGain+'% за выбранный срок. Такой результат нельзя обоснованно назначить по анкете. План строится от текущей силы; новый контрольный ориентир определяется по выполненным тренировкам.');
-    else if(goalStatus==='ambitious')warnings.push('Цель требует прироста '+requiredGain+'%. Это ориентир, а не прогноз: контрольный вес пересматривается по фактическим тренировкам.');
+    const goalStatus=model.status,milestone=model.result===null?null:round(model.result);
+    const checkpoint=opener===null?null:{weight:opener,reps:checkReps};
+    const trajectory=trajectoryOf(sessions);
+    const warnings=['Плановые прибавки условны: переходите к ним после выполнения предыдущих недель в пределах RPE. Записанные результаты уточняют дальнейшую траекторию.','Календарь фиксирован. Изменить дату и дни можно через «Изменить цель и расписание». Записи сохраняются.'];
+    if(goalStatus==='unsupported')warnings.push('Цель требует прироста '+requiredGain+'% и выходит за выбранную траекторию срока и стажа. Промежуточный ориентир цикла: '+milestone+' кг; после контроля стройте следующий цикл.');
+    else if(goalStatus==='ambitious')warnings.push('Цель требует прироста '+requiredGain+'%: это напряжённая траектория. Подтверждайте каждую ступень выполненными подходами; при высоком RPE замедляйте прогрессию.');
     if(p.weekdays.length===1)warnings.push('Одно занятие в неделю: совмещены жим, спина и трицепс; пропуск заметно уменьшает тренировочный объём.');
     if(supervised)warnings.push('Индивидуальное сопровождение обязательно. Назначен контроль техники без автоматических максимальных попыток.');
     if(p.technique==='touch')warnings.push('Результат без паузы — неопределённая оценка. Уточняйте по подтверждённым подходам с паузой.');
-    if(stale)warnings.push('Исходный результат старше 60 дней: первые недели — возврат, затем ограниченное повышение нагрузки с разгрузками. Вес и цель пересматриваются по выполненным подходам и RPE.');
+    if(stale)warnings.push('Результат старше 60 дней требует проверки текущей нагрузки. Дата рекорда сама по себе не означает перерыв; стаж и текущая регулярность учитываются отдельно.');
+    if(model.continuity==='returning')warnings.push('После перерыва выделены четыре недели входа. Дальше идут объёмный и силовой этапы, а не постоянный режим возврата.');
+    if(G.days(model.anchor,p.target)>26*7)warnings.push('Плановая прибавка ограничена одним циклом до 24 недель. Для более дальних дат обновляйте траекторию по журналу, без многолетнего прогноза рекорда.');
     if(base===null)warnings.push('Исходный вес неизвестен. Подберите лёгкую нагрузку; запись с паузой и RPE 6–9 позволит предложить расчётную базу.');
     else if(base*.6<p.bar)warnings.push('Расчётная лёгкая нагрузка меньше грифа. Для строк «подбор» нужен более лёгкий гриф; текущий вес грифа не назначается насильно.');
-    return adaptMovement({id:'p-'+(root.crypto?.randomUUID?.()||Date.now()+'-'+Math.random().toString(36).slice(2)),version:1,algorithm:p.discipline==='bench'?'bench-natural-3':'strength-natural-4',createdAt:new Date().toISOString(),name:(p.name||'Мой план').trim().slice(0,60),profile:p,sessions,meta:{base,estimate:initial,ageGroup:p.age<18?'14–17':p.age<40?'18–39':p.age<60?'40–59':p.age<=85?'60–85':'86–100',relativeGoal:Number((p.goal/p.bodyweight).toFixed(2)),warnings,reviewed:[],adjustments:[],templateVersion:TEMPLATE_VERSION,goalAssessment:{status:goalStatus,requiredGain,checkpoint}},rules:[...warnings,'RPE 8 — примерно 2 повтора в запасе; RPE 6 — около 4. При ≤5 точная оценка силы не используется.','Для пересчёта подходят 1–10 фактических повторов с RPE 6–9, подтверждённой паузой и завершённой тренировкой.','Повышение опирается на два согласованных занятия. За одно применение база растёт не более 2,5%, не чаще раза в неделю.','В подводке объём не повышается. Последние 7 дней — без повышения базы.','Масса тела не задаёт рабочие килограммы: нагрузку определяют текущие результаты. Возраст влияет на исходный объём, далее учитывается фактическая переносимость.','Без фармакологии и бустеров. Максимальная переносимая нагрузка не означает работу до отказа.']},p);
+    return adaptMovement({id:'p-'+(root.crypto?.randomUUID?.()||Date.now()+'-'+Math.random().toString(36).slice(2)),version:1,algorithm:p.discipline==='bench'?'bench-natural-3':'strength-natural-4',createdAt:new Date().toISOString(),name:(p.name||'Мой план').trim().slice(0,60),profile:p,sessions,meta:{base,estimate:initial,ageGroup:p.age<18?'14–17':p.age<40?'18–39':p.age<60?'40–59':p.age<=85?'60–85':'86–100',relativeGoal:Number((p.goal/p.bodyweight).toFixed(2)),warnings,reviewed:[],adjustments:[],templateVersion:TEMPLATE_VERSION,progression:{anchor:model.anchor,entryWeeks,plannedResult:milestone,nominalGain:model.nominal,upperGain:model.upper,plannedGain:model.gain,trajectory},goalAssessment:{status:goalStatus,requiredGain,checkpoint,milestone}},rules:[...warnings,'RPE 8 — примерно 2 повтора в запасе; RPE 6 — около 4. При ≤5 точная оценка силы не используется.','Для пересчёта подходят 1–10 фактических повторов с RPE 6–9, подтверждённой паузой и завершённой тренировкой.','Повышение опирается на два согласованных занятия. За одно применение база растёт не более 2,5%, не чаще раза в неделю.','В подводке объём не повышается. Последние 7 дней — без повышения базы.','Масса тела не задаёт рабочие килограммы: нагрузку определяют текущие результаты. Возраст влияет на исходный объём, далее учитывается фактическая переносимость.','Без фармакологии и бустеров. Максимальная переносимая нагрузка не означает работу до отказа.']},p);
   }
   const disciplines={bench:'Жим лёжа',squat:'Приседания',deadlift:'Становая тяга'};
   function adaptMovement(plan,p){
@@ -111,6 +162,7 @@
       }
     }
     plan.rules=plan.rules.map(words);plan.meta.warnings=plan.meta.warnings.map(words);
+    if(plan.meta.progression)plan.meta.progression.trajectory=trajectoryOf(plan.sessions);
     plan.meta.warnings.push(dead?'Тяга: один основной день в неделю, остальные — техника; уменьшены рабочие подходы и повторения. Это стартовая дозировка, а не утверждение об обязательном более долгом восстановлении.':'Присед: соблюдайте глубину; RPE оценивайте при одинаковой технике.');
     return plan;
   }
@@ -143,6 +195,7 @@
         s.phase='technique';s.title='Техника · восстановление между дисциплинами';s.note='Рядом есть присед или тяга: назначена лёгкая техника без подсобной работы. Не добавляйте тяжёлые подходы. '+s.note;
       }else if(!['technique','deload','taper'].includes(s.phase))hard.push(s.date);
     }
+    for(const p of result)if(p.meta.progression)p.meta.progression.trajectory=trajectoryOf(p.sessions);
     return result;
   }
   function replaceFuture(plan,fresh,logs,asOf){
@@ -154,10 +207,15 @@
     const current=['bench-natural-3','strength-natural-4'].includes(plan.algorithm);
     if(current&&plan.meta.templateVersion===TEMPLATE_VERSION)return plan;
     const fresh=generate(plan.profile,plan.meta.base);
-    const meta=current?{...plan.meta,warnings:fresh.meta.warnings,goalAssessment:fresh.meta.goalAssessment,templateVersion:TEMPLATE_VERSION}:{...fresh.meta,reviewed:plan.meta.reviewed||[],migratedFrom:plan.algorithm};
+    const meta=current?{...plan.meta,warnings:fresh.meta.warnings,progression:fresh.meta.progression,goalAssessment:fresh.meta.goalAssessment,templateVersion:TEMPLATE_VERSION}:{...fresh.meta,reviewed:plan.meta.reviewed||[],migratedFrom:plan.algorithm};
     return {...fresh,id:plan.id,createdAt:plan.createdAt,name:plan.name,sessions:replaceFuture(plan,fresh,logs,add(asOf,-1)),meta};
   }
   const signature=log=>JSON.stringify([log.status,log.feedback,log.verified,log.sets]);
+  function completedWork(s,log){
+    if(log?.status!=='done'||log.feedback!=='ok'||!log.verified)return false;
+    const work=s.exercises[0].sets.map((v,i)=>({v,a:log.sets[i]})).filter(x=>x.v.role==='work');
+    return work.length>0&&work.every(({v,a})=>a?.kg>0&&a.reps>=v.reps&&a.rpe!==null&&a.rpe>=5&&a.rpe<=Math.max(6.5,v.rpeTarget??6.5)+.5);
+  }
   function easyComplete(s,log){
     if(log?.status!=='done'||log.feedback!=='ok'||!log.verified||['technique','deload','taper','test'].includes(s.phase))return false;
     const work=s.exercises[0].sets.map((v,i)=>({v,a:log.sets[i]})).filter(x=>x.v.role==='work');
@@ -187,7 +245,7 @@
     const before=last?.date===s.date?last.beforeBase:plan.meta.base;
     const actual=log.sets.slice(0,s.exercises[0].sets.length);
     const missed=actual.some((v,i)=>{const t=s.exercises[0].sets[i];return t.kind!=='Разминка'&&!t.optional&&v.kg>0&&v.kg>=t.weight&&v.reps<t.reps;});
-    const over=actual.some((v,i)=>v.rpe!==null&&v.rpe>Math.max(8,s.exercises[0].sets[i].rpeTarget??8)+.5);
+    const over=actual.some((v,i)=>v.rpe!==null&&v.rpe>(s.exercises[0].sets[i].rpeTarget??8)+.5);
     const hard=log.feedback==='hard'||missed||over;
     const recent=completed.filter(x=>G.days(x.date,s.date)<=28).map(x=>({date:x.date,value:evidence(plan,x,logs[plan.id+'|'+x.id])})).filter(x=>x.value!==null).slice(-3);
     const observation=recent.length?median(recent.map(x=>x.value)):null;
@@ -197,6 +255,9 @@
     const mayRaise=G.days(s.date,plan.profile.target)>7&&(!priorRaises||G.days(priorRaises.date,s.date)>=7);
     if(hard||log.status==='skipped'){mode='recovery';change=true;message=hard?'Нагрузка оказалась чрезмерной: следующая тренировка легче, на один рабочий подход меньше, отдых длиннее.':'Пропуск: календарь сохранён; ближайшее занятие облегчено без догоняющего объёма.';}
     else if(!log.verified)return no('Факт сохранён. Подтвердите технику и выполнение рабочей части без боли для оценки силы.');
+    else if(plan.profile.progressionPaused&&lastTwo.length===2&&lastTwo.every(x=>completedWork(x,logs[plan.id+'|'+x.id]))){
+      change=true;message='Две тренировки перенесены без недовосстановления: возобновляем плановые ступени от текущей подтверждённой базы.';
+    }
     else if(before!==null&&mayRaise&&lastTwo.length===2&&lastTwo.every(x=>easyComplete(x,logs[plan.id+'|'+x.id]))){
       base=Math.floor(before*1.025*100)/100;change=true;message='Две рабочие части полностью выполнены с большим запасом: пробная небольшая прибавка. Это прогрессия нагрузки, не оценка максимума по лёгкому RPE.';
     }
@@ -214,14 +275,23 @@
   }
   function applyReview(plan,logs,asOf){
     const a=review(plan,logs,asOf);if(!a.change)throw Error(a.message);
-    const profile={...plan.profile,baseVerifiedOn:a.mode==='normal'?a.date:plan.profile.baseVerifiedOn};
+    const latest=plan.sessions.find(s=>s.date===a.date),actual=logs[plan.id+'|'+latest.id].sets;
+    const workWeights=latest.exercises[0].sets.flatMap((v,i)=>{
+      if(v.role!=='work')return [];
+      const performed=actual[i]?.kg>0?actual[i].kg:null;
+      const weight=v.weight===null?performed:performed===null?v.weight:Math.min(v.weight,performed);
+      return weight===null?[]:[weight];
+    });
+    const reduced=workWeights.length?Math.min(...workWeights)*.95:null;
+    const pauseWeight=reduced===null?null:reduced<plan.profile.bar?reduced:G.round(reduced,plan.profile.step,plan.profile.bar);
+    const profile={...plan.profile,baseVerifiedOn:a.mode==='normal'?a.date:plan.profile.baseVerifiedOn,progressionAnchor:a.date,progressionPaused:a.mode==='recovery',progressionWorkWeight:a.mode==='recovery'?pauseWeight:null,trainingContinuity:a.mode==='normal'?'regular':plan.profile.trainingContinuity};
     const fresh=generate(profile,a.base),sessions=replaceFuture(plan,fresh,logs,asOf);
     if(a.mode==='recovery'){
       const next=sessions.find(s=>s.date>asOf&&!hasLog(logs[plan.id+'|'+s.id]));
       if(next&&next.phase!=='test'){
         const ex=next.exercises[0],works=ex.sets.filter(v=>v.role==='work');
         ex.sets=ex.sets.filter(v=>v.role!=='single');
-        if(works.length>2)ex.sets.splice(ex.sets.indexOf(works.at(-1)),1);
+        if(works.length>1)ex.sets.splice(ex.sets.indexOf(works.at(-1)),1);
         for(const v of ex.sets){if(v.weight!==null)v.weight=G.round(v.weight*.95,plan.profile.step,plan.profile.bar);if(v.role==='work'){v.reps=Math.max(2,v.reps-1);v.rest=Math.max(240,v.rest);v.rpeTarget=6.5;v.rpe=true;}}
         next.title='Восстановление · облегчённая тренировка';next.note=a.message;next.exercises=next.exercises.slice(0,2);
       }
@@ -236,7 +306,7 @@
     if(G.days(asOf,target)<14)throw Error('До новой цели нужно минимум 14 дней. Для более короткой подводки нужен индивидуальный разбор.');
     if(G.days(plan.profile.start,target)>730)throw Error('Общая длина программы ограничена двумя годами; сохраните отдельный следующий цикл.');
     if(plan.sessions.some(s=>s.date>target&&hasLog(logs[plan.id+'|'+s.id])))throw Error('После новой даты есть записи. Выберите дату после них, чтобы сохранить историю.');
-    const p={...plan.profile,...changes,start:plan.profile.start,blockStart:add(asOf,1)};
+    const p={...plan.profile,...changes,start:plan.profile.start,blockStart:add(asOf,1),progressionAnchor:add(asOf,1)};
     const errors=validate(p);if(errors.length)throw Error(errors.join('\n'));
     const done=plan.sessions.filter(s=>s.date<=asOf&&logs[plan.id+'|'+s.id]?.status==='done');
     const last=done.at(-1),gap=last?G.days(last.date,asOf):G.days(plan.profile.start,asOf);
@@ -249,7 +319,7 @@
     const fresh=generate(schedule,plan.meta.base);
     const sessions=replaceFuture(plan,fresh,logs,asOf);
     if(gap>14||last&&logs[plan.id+'|'+last.id]?.feedback==='hard'){const next=sessions.find(s=>s.date>asOf&&!hasLog(logs[plan.id+'|'+s.id]));if(next){for(const v of next.exercises[0].sets)if(v.weight!==null)v.weight=G.round(v.weight*.9,p.step,p.bar);next.note='Возвращение после перерыва или недовосстановления: уменьшенная нагрузка. '+next.note;}}
-    return {...plan,algorithm:plan.algorithm,profile:p,sessions,meta:{...plan.meta,ageGroup:fresh.meta.ageGroup,warnings:fresh.meta.warnings,relativeGoal:fresh.meta.relativeGoal,goalAssessment:fresh.meta.goalAssessment,templateVersion:TEMPLATE_VERSION,revisions:[...(plan.meta.revisions||[]),{date:asOf,oldTarget:plan.profile.target,target,weekdays:p.weekdays}],lastAdjustment:'Цель и расписание изменены '+asOf+'. Выполненные и частично записанные дни сохранены.'}};
+    return {...plan,algorithm:plan.algorithm,profile:p,sessions,meta:{...plan.meta,ageGroup:fresh.meta.ageGroup,warnings:fresh.meta.warnings,relativeGoal:fresh.meta.relativeGoal,progression:fresh.meta.progression,goalAssessment:fresh.meta.goalAssessment,templateVersion:TEMPLATE_VERSION,revisions:[...(plan.meta.revisions||[]),{date:asOf,oldTarget:plan.profile.target,target,weekdays:p.weekdays}],lastAdjustment:'Цель и расписание изменены '+asOf+'. Выполненные и частично записанные дни сохранены.'}};
   }
   const api={...G,validate,generate,upgrade,review,applyReview,replan,estimateSet,evidence,hasLog,coordinate,disciplines,TEMPLATE_VERSION};
   if(typeof module!=='undefined')module.exports=api;else root.BenchGenerator=api;

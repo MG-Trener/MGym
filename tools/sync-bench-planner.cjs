@@ -20,6 +20,7 @@ js=js.replace("const data=broken?lastRaw:JSON.stringify(pending||state,null,2);c
 js=js.replace("const url=URL.createObjectURL(new Blob([raw],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='mg150-before-v3.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);","if(!window.MGymNative.exportBackup(raw))throw Error('Не удалось подготовить копию.');");
 js=js.replace("const url=URL.createObjectURL(new Blob([raw],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='mg150-before-progression.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);","if(!window.MGymNative.exportBackup(raw))throw Error('Не удалось подготовить копию.');");
 js=js.replace("const url=URL.createObjectURL(new Blob([raw],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='mg150-before-progression-previous.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);","if(!window.MGymNative.exportBackup(raw))throw Error('Не удалось подготовить копию.');");
+js=js.replace("const url=URL.createObjectURL(new Blob([raw],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='mg150-before-progression-v3.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);","if(!window.MGymNative.exportBackup(raw))throw Error('Не удалось подготовить копию.');");
 js=js.replaceAll('Прежних программ в этом браузере не было.','Прежних программ на этом устройстве не было.');
 js=js.replace("Скачан исходный повреждённый файл для восстановления.","Выберите место для сохранения исходного файла.");
 js=js.replace("persist(next);activate(next.active);","if(persist(next))activate(next.active);");
@@ -33,7 +34,7 @@ fs.writeFileSync(path.join(dest,'planner.js'),js);
 const manifest={repository:'MG-Trener/Gym-150',commit:process.argv[3]||'working-tree',algorithm:'bench-natural-3 / strength-natural-4',sha256:Object.fromEntries(['generator.js','engine-v2.js','engine-v3.js'].map(f=>[f,crypto.createHash('sha256').update(fs.readFileSync(path.join(dest,f))).digest('hex')]))};
 fs.writeFileSync(path.join(dest,'source.json'),JSON.stringify(manifest,null,2)+'\n');
 fs.mkdirSync(path.resolve(__dirname,'../tests/bench-planner'),{recursive:true});
-for(const f of ['generator.test.cjs','engine-v2.test.cjs','engine-v3.test.cjs','disciplines.test.cjs']){
+for(const f of ['generator.test.cjs','engine-v2.test.cjs','engine-v3.test.cjs','disciplines.test.cjs','programming.test.cjs']){
  const test=fs.readFileSync(path.join(source,f),'utf8').replaceAll("require('./generator.js')","require('../../app/src/main/assets/bench-planner/generator.js')").replaceAll("require('./engine-v2.js')","require('../../app/src/main/assets/bench-planner/engine-v2.js')").replaceAll("require('./engine-v3.js')","require('../../app/src/main/assets/bench-planner/engine-v3.js')");
  fs.writeFileSync(path.resolve(__dirname,'../tests/bench-planner',f),test.trimEnd()+'\n');
 }

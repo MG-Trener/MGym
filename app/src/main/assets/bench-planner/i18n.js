@@ -9,8 +9,8 @@
  function text(source,depth=0){
   if(index<0||depth>12||typeof source!=='string')return source;
   if(catalog[source])return catalog[source][index];
-  if(source.includes('; '))return source.split('; ').map(s=>text(s,depth+1)).join('; ');
   for(const [r,v] of patterns){const m=source.match(r);if(m)return v[index].replace(/\{(\d+)}/g,(_,n)=>text(m[Number(n)+1],depth+1));}
+  if(source.includes('; '))return source.split('; ').map(s=>text(s,depth+1)).join('; ');
   const trim=source.trim();if(trim!==source&&trim)return source.replace(trim,text(trim,depth+1));
   if(source.includes('·'))return source.split(/(\s*·\s*)/).map((s,i)=>i%2?s:text(s,depth+1)).join('');
   const sentences=source.split(/(?<=[.!?])\s+(?=[А-ЯЁ])/);if(sentences.length>1)return sentences.map(s=>text(s,depth+1)).join(' ');
