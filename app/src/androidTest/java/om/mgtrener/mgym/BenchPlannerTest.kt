@@ -38,7 +38,13 @@ class BenchPlannerTest {
         check(latch.await(10, TimeUnit.SECONDS)); return result
     }
     private fun ready(scenario: ActivityScenario<MainActivity>) {
-        compose.waitUntil(20000) { runCatching { js(scenario,"!!document.querySelector('#detail table')") == "true" }.getOrDefault(false) }
+        compose.waitUntil(20000) { runCatching { js(scenario,"!!window.Planner && (!!document.querySelector('#detail table') || !document.querySelector('#empty-plan').hidden)") == "true" }.getOrDefault(false) }
+    }
+    private fun createPlan(scenario: ActivityScenario<MainActivity>, name: String, discipline: String = "bench"): String {
+        val start=java.time.LocalDate.now().plusDays(7)
+        js(scenario,"(()=>{document.querySelector('#new-plan').click();const f=document.querySelector('#generator-form');const p={name:${JSONObject.quote(name)},discipline:'$discipline',age:35,bodyweight:80,goal:100,start:'$start',target:'${start.plusDays(56)}',experience:'novice',trainingContinuity:'regular',recovery:'normal',resultType:'max',resultWeight:75,reps:1,technique:'paused',resultDate:'$start',bar:20,step:2.5,equipment:'gym',pain:'no'};for(const [k,v] of Object.entries(p))f.elements[k].value=v;f.elements.resultType.dispatchEvent(new Event('change'));for(const e of f.querySelectorAll('[name=weekday]'))e.checked=[1,4].includes(Number(e.value));f.requestSubmit();document.querySelector('#save-plan').click();})()")
+        assertEquals("false",js(scenario,"document.querySelector('#detail').hidden"))
+        return JSONObject(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!).getString("active")
     }
     private fun capture(scenario: ActivityScenario<MainActivity>, name: String) {
         val painted=CountDownLatch(1)
@@ -117,7 +123,7 @@ class BenchPlannerTest {
             capture(scenario,"planner-progression-060.png")
         }
     }
-    @Test fun originalPlanLogDialogHasUsableHeight() {
+    @Test fun personalPlanLogDialogHasUsableHeight() {
         check(context.packageName.endsWith(".uitest"))
         BenchPlannerStorage.clear(context)
         context.deleteDatabase("mgym.db")
@@ -125,7 +131,9 @@ class BenchPlannerTest {
             compose.waitUntil(15000) { compose.onAllNodesWithText("План жима лёжа").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("План жима лёжа").performScrollTo().performClick()
             ready(scenario)
-            js(scenario,"selectSession('2026-10-12');document.querySelector('#detail button').click()")
+            val planId=createPlan(scenario,"Проверка полей")
+            val date=js(scenario,"document.querySelector('#sessions .active').getAttribute('aria-current');plan.sessions.find(s=>s.id===selected).date").trim('"')
+            js(scenario,"document.querySelector('#detail button').click()")
             capture(scenario,"bench-log-fixed.png")
             val metrics=js(scenario,"(()=>{const d=document.querySelector('#log-dialog'),r=d.getBoundingClientRect();return {height:r.height,viewport:innerHeight,scroll:d.scrollHeight,width:r.width,client:d.clientHeight,form:document.querySelector('#log-form').getBoundingClientRect().height};})()")
             assertTrue(metrics,JSONObject(metrics).getDouble("height")>200)
@@ -147,9 +155,9 @@ class BenchPlannerTest {
             try { compose.waitUntil(10000) { js(scenario,"document.querySelector('#log-dialog').open") == "false" } }
             catch(e:Exception) { capture(scenario,"bench-save-failed.png");throw AssertionError(js(scenario,"JSON.stringify({error:document.querySelector('#log-error').textContent,active:document.activeElement.outerHTML,invalid:[...document.querySelectorAll('#log-form :invalid')].map(e=>e.outerHTML)})"),e) }
             val state=JSONObject(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!)
-            assertEquals(20.0,state.getJSONObject("logs").getJSONObject("original|2026-10-12").getJSONArray("sets").getJSONObject(0).getDouble("kg"),0.0)
+            assertEquals(20.0,state.getJSONObject("logs").getJSONObject("$planId|$date").getJSONArray("sets").getJSONObject(0).getDouble("kg"),0.0)
             scenario.recreate();ready(scenario)
-            js(scenario,"selectSession('2026-10-12');document.querySelector('#detail button').click()")
+            js(scenario,"selectSession('$date');document.querySelector('#detail button').click()")
             assertEquals("\"20\"",js(scenario,"document.querySelector('[name=kg-0]').value"))
         }
     }
@@ -166,18 +174,21 @@ class BenchPlannerTest {
             ready(scenario)
             assertEquals("true",js(scenario,"(()=>{document.querySelector('#new-plan').click();const f=document.querySelector('#generator-form');const p={name:'Проверка Android',age:35,bodyweight:90,goal:150,start:'${start}',target:'${start.plusDays(54)}',experience:'trained',recovery:'normal',resultType:'set',resultWeight:132.5,reps:3,technique:'touch',resultDate:'${start.minusDays(2)}',bar:20,step:2.5,equipment:'gym',pain:'no'};for(const [k,v] of Object.entries(p))f.elements[k].value=v;f.elements.resultType.dispatchEvent(new Event('change'));f.elements.reps.value=3;for(const e of f.querySelectorAll('[name=weekday]'))e.checked=[1,3,5].includes(Number(e.value));f.requestSubmit();return !document.querySelector('#preview').hidden;})()"))
             js(scenario,"document.querySelector('#save-plan').click()")
-            assertTrue(js(scenario,"document.querySelector('#detail').innerText").contains("115"))
-            assertTrue(js(scenario,"document.querySelector('#detail').innerText").contains("105"))
-            assertEquals("8",js(scenario,"document.querySelectorAll('#detail tbody tr').length"))
+            js(scenario,"selectSession('$start')")
+            val initial=JSONObject(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!).getJSONArray("plans").getJSONObject(0)
+            val main=initial.getJSONArray("sessions").getJSONObject(0).getJSONArray("exercises").getJSONObject(0).getJSONArray("sets")
+            val workIndex=(0 until main.length()).first { main.getJSONObject(it).getBoolean("rpe") }
+            val prescribed=main.getJSONObject(workIndex)
+            assertEquals(main.length().toString(),js(scenario,"document.querySelectorAll('#detail tbody tr').length"))
             js(scenario,"document.querySelector('#detail button').click()")
-            js(scenario,"(()=>{const f=document.querySelector('#log-form');f.elements['kg-4'].value='115';f.elements['reps-4'].value='1';f.elements['rpe-4'].value='9';f.elements['kg-8'].value='40';f.elements['reps-8'].value='10';f.elements.status.value='done';f.requestSubmit();})()")
+            js(scenario,"(()=>{const f=document.querySelector('#log-form');f.elements['kg-$workIndex'].value='${prescribed.getDouble("weight")}';f.elements['reps-$workIndex'].value='${prescribed.getInt("reps")}';f.elements['rpe-$workIndex'].value='9';f.elements['kg-${main.length()}'].value='40';f.elements['reps-${main.length()}'].value='10';f.elements.status.value='done';f.elements.feedback.value='hard';f.elements.verified.checked=true;f.requestSubmit();})()")
             // Real UI correction must preserve the entered set and change only later appointments.
             assertEquals("false",js(scenario,"document.querySelector('#apply-review').hidden"))
             js(scenario,"document.querySelector('#apply-review').click()")
             val before=JSONObject(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!)
             assertEquals(1,before.getJSONArray("plans").length())
-            assertEquals(145.75,before.getJSONArray("plans").getJSONObject(0).getJSONObject("meta").getDouble("base"),0.0)
-            assertEquals(9.0,before.getJSONObject("logs").getJSONObject(before.getString("active")+"|$start").getJSONArray("sets").getJSONObject(4).getDouble("rpe"),0.0)
+            assertTrue(before.getJSONArray("plans").getJSONObject(0).getJSONObject("profile").getBoolean("progressionPaused"))
+            assertEquals(9.0,before.getJSONObject("logs").getJSONObject(before.getString("active")+"|$start").getJSONArray("sets").getJSONObject(workIndex).getDouble("rpe"),0.0)
             scenario.recreate(); ready(scenario)
             compose.waitUntil(10000) { js(scenario,"[...document.querySelectorAll('#detail img')].every(i=>i.complete&&i.naturalWidth>0)") == "true" }
             assertEquals(before.toString(),JSONObject(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!).toString())
@@ -236,5 +247,46 @@ class BenchPlannerTest {
         assertEquals(200,response.statusCode); assertTrue(response.data.bufferedReader().use{it.readText()}.contains("mobile.js"))
         BenchPlannerStorage.clear(context)
         assertNull(store.read("mg150-planner-v1")); assertFalse(BenchPlannerStorage.exportFile(context).exists())
+    }
+    @Test fun emptyStartDeleteCancelAndRestoreKeepOtherPlansAndDiary() {
+        check(context.packageName.endsWith(".uitest"))
+        BenchPlannerStorage.clear(context);context.deleteDatabase("mgym.db")
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            compose.waitUntil(15000) { compose.onAllNodesWithText("План жима лёжа").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("План жима лёжа").performScrollTo().performClick();ready(scenario)
+            compose.onNodeWithText("Прежний план и записи").assertDoesNotExist()
+            assertEquals("\"MGym\"",js(scenario,"document.querySelector('.brand').textContent"))
+            assertEquals("true",js(scenario,"document.querySelector('#empty-plan').hidden===false && document.querySelector('#plan-select').options.length===1 && document.querySelector('#plan-select').value===''"))
+            val bench=createPlan(scenario,"Жим для удаления")
+            js(scenario,"document.querySelector('#detail button').click();(()=>{const f=document.querySelector('#log-form');f.elements['kg-0'].value='20';f.elements['reps-0'].value='10';f.elements.status.value='done';f.requestSubmit()})();document.querySelector('#review-dialog').close()")
+            val squat=createPlan(scenario,"Присед сохранить","squat")
+            js(scenario,"document.querySelector('#discipline-select').value='bench';document.querySelector('#discipline-select').dispatchEvent(new Event('change'))")
+            val before=BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!
+            tapWeb(scenario,"#delete-plan");tapWeb(scenario,"#delete-dialog [data-close]")
+            assertEquals(before,BenchPlannerStorage(context,{},{}).read("mg150-planner-v1"))
+            tapWeb(scenario,"#delete-plan");tapWeb(scenario,"#confirm-delete")
+            val after=JSONObject(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!)
+            assertEquals(1,after.getJSONArray("plans").length());assertEquals(squat,after.getJSONArray("plans").getJSONObject(0).getString("id"));assertEquals(0,after.getJSONObject("logs").length())
+            assertEquals(before,BenchPlannerStorage(context,{},{}).read("mg150-planner-v1-before-delete"))
+            om.mgtrener.mgym.database.GymDatabase(context).use { helper ->
+                helper.readableDatabase.rawQuery("SELECT COUNT(*) FROM workouts WHERE source_key LIKE ?",arrayOf("$bench|%")).use { it.moveToFirst();assertEquals(1,it.getInt(0)) }
+            }
+            assertEquals("true",js(scenario,"!document.querySelector('#empty-plan').hidden && document.querySelector('#delete-plan').hidden"))
+            scenario.recreate();ready(scenario)
+            js(scenario,"document.querySelector('#discipline-select').value='squat';document.querySelector('#discipline-select').dispatchEvent(new Event('change'))")
+            assertEquals("true",js(scenario,"!!document.querySelector('#detail table')"))
+            tapWeb(scenario,"#delete-plan");tapWeb(scenario,"#confirm-delete")
+            assertEquals("",JSONObject(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!).getString("active"))
+            scenario.recreate();ready(scenario)
+            assertEquals("true",js(scenario,"!document.querySelector('#empty-plan').hidden"))
+            js(scenario,"window.Planner.receiveImport(${JSONObject.quote(before)});document.querySelector('#confirm-import').click();document.querySelector('#data-dialog').close()")
+            val restored=JSONObject(BenchPlannerStorage(context,{},{}).read("mg150-planner-v1")!!)
+            assertEquals(2,restored.getJSONArray("plans").length());assertEquals(1,restored.getJSONObject("logs").length())
+            assertEquals("true",js(scenario,"!!document.querySelector('#detail table')"))
+            tapWeb(scenario,"#delete-plan")
+            assertEquals("true",js(scenario,"document.querySelector('#delete-dialog').getBoundingClientRect().height<=441"))
+            capture(scenario,"planner-delete-061.png")
+            tapWeb(scenario,"#delete-dialog [data-close]")
+        }
     }
 }

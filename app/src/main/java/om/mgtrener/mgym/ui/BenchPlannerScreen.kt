@@ -34,7 +34,7 @@ internal object BenchPlannerAssets {
     const val ROOT = "https://$HOST/bench/"
     const val HOME = ROOT + "index.html"
     private val files = setOf("index.html", "method.html", "style.css", "mobile.css", "app.js", "planner.js",
-        "i18n.js", "i18n-catalog.js", "i18n-progress.js", "generator.js", "engine-v2.js", "engine-v3.js", "mobile.js", "plan.json") + listOf("cable-row", "dumbbell-row",
+        "i18n.js", "i18n-catalog.js", "i18n-progress.js", "generator.js", "engine-v2.js", "engine-v3.js", "mobile.js") + listOf("cable-row", "dumbbell-row",
         "lat-pulldown", "overhead-triceps-extension", "rear-delt-fly", "triceps-pushdown").map { "assets/$it.webp" } + listOf("leg-curl", "split-squat", "hip-thrust").map { "assets/$it.png" }
     fun path(uri: Uri): String? = uri.path?.removePrefix("/bench/")?.takeIf {
         uri.scheme == "https" && uri.host == HOST && uri.port == -1 && uri.userInfo == null &&
@@ -57,7 +57,6 @@ internal object BenchPlannerAssets {
 fun BenchPlannerScreen(discipline: Exercise = Exercise.BENCH, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var legacy by rememberSaveable { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var web by remember { mutableStateOf<WebView?>(null) }
     var pageReady by remember { mutableStateOf(false) }
@@ -101,13 +100,10 @@ fun BenchPlannerScreen(discipline: Exercise = Exercise.BENCH, onBack: () -> Unit
             "(()=>{const d=document.querySelector('dialog[open]');if(d){d.close();return true;}return false;})()"
         ) { closed -> if (closed != "true") { if (view.canGoBack()) view.goBack() else onBack() } }
     }
-    BackHandler { if (legacy) legacy = false else goBack() }
-    if (legacy) {
-        Bench150Screen { legacy = false }
-    } else Column(Modifier.fillMaxSize().imePadding()) {
+    BackHandler { goBack() }
+    Column(Modifier.fillMaxSize().imePadding()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(onClick = goBack) { LocalizedText("← Назад") }
-            if(discipline==Exercise.BENCH) TextButton(onClick = { legacy = true }) { LocalizedText("Прежний план и записи") }
         }
         AndroidView(modifier = Modifier.fillMaxWidth().weight(1f), factory = { ctx ->
             WebView(ctx).apply {

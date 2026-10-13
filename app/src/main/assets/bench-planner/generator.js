@@ -131,7 +131,7 @@
   function validateState(v){
     if(!v||v.version!==VERSION||!Array.isArray(v.plans)||v.plans.length>20||typeof v.active!=='string'||!v.logs||typeof v.logs!=='object'||Array.isArray(v.logs))throw Error('Неподдерживаемый файл. Нужна резервная копия MGym версии 1.');
     const ids=new Set(['original']);for(const p of v.plans){validatePlan(p);if(ids.has(p.id))throw Error('Повторяющийся идентификатор плана.');ids.add(p.id);}
-    if(!ids.has(v.active))throw Error('Не найден активный план.');
+    if(v.active!==''&&!ids.has(v.active))throw Error('Не найден активный план.');
     if(JSON.stringify(v).length>2000000)throw Error('Резервная копия слишком большая.');
     for(const [key,log] of Object.entries(v.logs)){
       const split=key.lastIndexOf('|'),pid=key.slice(0,split),sid=key.slice(split+1);date(sid);if(!ids.has(pid)||(pid!=='original'&&!v.plans.find(p=>p.id===pid).sessions.some(s=>s.id===sid)))throw Error('Запись ссылается на неизвестную тренировку.');
@@ -141,8 +141,18 @@
     }
     // Не переносим неизвестные корневые поля из файлов.
     const current={};for(const [d,id] of Object.entries(v.current||{})){if(!['bench','squat','deadlift'].includes(d)||!v.plans.some(p=>p.id===id&&(p.profile.discipline||'bench')===d))throw Error('Повреждён выбор дисциплины.');current[d]=id;}
-    return {version:VERSION,active:v.active,plans:v.plans,logs:v.logs,...(v.current?{current}:{})};
+    return {version:VERSION,active:v.active==='original'?(v.plans.at(-1)?.id||''):v.active,plans:v.plans,logs:v.logs,...(v.current?{current}:{})};
   }
-  const api={generate,validate,validatePlan,validateState,round,days,iso,VERSION};
+  function removePlan(value,id){
+    const state=validateState(value),removed=state.plans.find(p=>p.id===id);
+    if(!removed)throw Error('Не найден план для удаления.');
+    const discipline=removed.profile.discipline||'bench',plans=state.plans.filter(p=>p.id!==id);
+    const fallback=plans.filter(p=>(p.profile.discipline||'bench')===discipline).at(-1);
+    const current={...state.current};
+    for(const [d,selected] of Object.entries(current))if(selected===id){if(fallback)current[d]=fallback.id;else delete current[d];}
+    const logs=Object.fromEntries(Object.entries(state.logs).filter(([key])=>key.slice(0,key.lastIndexOf('|'))!==id));
+    return validateState({...state,plans,logs,current,active:state.active===id?(fallback?.id||plans.at(-1)?.id||''):state.active});
+  }
+  const api={generate,validate,validatePlan,validateState,removePlan,round,days,iso,VERSION};
   if(typeof module!=='undefined')module.exports=api;else root.BenchGenerator=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

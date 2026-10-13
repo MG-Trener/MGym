@@ -80,6 +80,4 @@ function renderDetail(){
   const note=document.createElement('p');note.className='day-note';note.textContent=(plan.algorithm==='bench-natural-2'&&!s.phase?'Этот день уже записан: исходное назначение сохранено. ':'')+s.note;aside.append(note);
   content.append(aside);box.append(content);
 }
-fetch('plan.json').then(r=>{if(!r.ok)throw Error('План недоступен');return r.json()}).then(data=>{
-  window.Planner.boot(data);
-}).catch(e=>{document.querySelector('#detail').textContent='Не удалось загрузить план: '+e.message});
+window.Planner.boot();

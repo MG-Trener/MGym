@@ -13,3 +13,5 @@ dialog>.dialog-heading button{flex:0 0 auto}
 .mobile-dialog-footer{flex:0 0 auto;padding:8px 12px;border-top:1px solid var(--line);background:var(--panel)}
 .mobile-dialog-footer button{width:100%;min-height:44px}
 body:has(dialog[open]){overflow:hidden}
+#delete-plan{min-height:40px;padding:6px 10px}
+#delete-dialog[open]{height:min(440px,var(--mg-dialog-height,calc(100vh - 16px)));top:calc(var(--mg-dialog-top,8px) + 12px)}

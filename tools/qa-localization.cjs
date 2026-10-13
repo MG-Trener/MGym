@@ -7,7 +7,7 @@ for(const language of ['ru','en','de','fr','es','pt-BR','zh-Hans','kk']){
  const page=await browser.newPage({viewport:{width:360,height:800}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(tag=>{window.MGymNative={language:()=>tag,read:k=>localStorage.getItem(k),write:(k,v)=>{localStorage.setItem(k,v);return true},exportBackup:()=>true,importBackup:()=>{}}},language);
  const collect=async()=>{if(['ru','kk'].includes(language))return;for(const text of await page.evaluate(()=>{const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),result=[];let n;while(n=walker.nextNode()){const p=n.parentElement;if(p&&!p.closest('script,style,option,[translate="no"]')&&p.getClientRects().length&&/[А-Яа-яЁё]/.test(n.data))result.push(n.data.trim())}return result}))if(text)missing.add(text)};
- await page.goto('http://127.0.0.1:8766');await page.locator('#detail table').waitFor();await collect();
+ await page.goto('http://127.0.0.1:8766');await page.locator('#empty-plan').waitFor();await collect();
  for(const [discipline,kg] of [['bench','120'],['squat','160'],['deadlift','190']]){
   await page.locator('#discipline-select').selectOption(discipline);await page.locator('#new-plan').click();
   const f=page.locator('#generator-form');for(const [name,value] of Object.entries({name:'User <saved> 日本語',age:'35',bodyweight:'90',goal:'200',start:'2026-10-12',target:'2026-12-05',resultWeight:kg,resultDate:'2026-10-10'}))await f.locator(`[name=${name}]`).fill(value);

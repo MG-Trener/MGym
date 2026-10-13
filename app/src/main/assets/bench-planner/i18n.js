@@ -27,7 +27,7 @@
  function translate(root){
   const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node;
   while(node=walker.nextNode()){
-   if(node.parentElement?.closest('script,style,textarea,[translate="no"],#plan-select option:not([value="original"])'))continue;
+   if(node.parentElement?.closest('script,style,textarea,[translate="no"],#plan-select option:not([value=""])'))continue;
    const old=originals.get(node),source=old&&node.data===old.rendered?old.source:node.data;
    const rendered=text(source);originals.set(node,{source,rendered});if(node.data!==rendered)node.data=rendered;
   }

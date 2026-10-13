@@ -1,6 +1,6 @@
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..'),catalog={};
-for(const file of ['catalog.tsv','progression.tsv'])for(const [i,line] of fs.readFileSync(path.join(root,'localization',file),'utf8').split(/\r?\n/).entries()){
+for(const file of ['catalog.tsv','progression.tsv','plans.tsv'])for(const [i,line] of fs.readFileSync(path.join(root,'localization',file),'utf8').split(/\r?\n/).entries()){
  if(!line || line.startsWith('#'))continue;
  const [key,...values]=line.split('|');
  if(values.length!==7||values.some(v=>!v))throw Error(`${file}:${i+1}: expected seven translations`);

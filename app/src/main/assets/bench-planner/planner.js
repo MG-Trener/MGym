@@ -2,11 +2,12 @@
 window.Planner=(()=>{
   const G=window.BenchGenerator, KEY='mg150-planner-v1', BACKUP=KEY+'-before-v3', OLD_PROGRESSION_BACKUP=KEY+'-before-progression', PREVIOUS_PROGRESSION_BACKUP=KEY+'-before-progression-v3', PROGRESSION_BACKUP=KEY+'-before-periodization';
   const $=s=>document.querySelector(s), form=$('#generator-form');
-  let state={version:1,active:'original',plans:[],logs:{}},original,draft,incoming,lastRaw=null,broken=false,pending=null;
+  const DELETION_BACKUP=KEY+'-before-delete';
+  let state={version:1,active:'',plans:[],logs:{}},draft,incoming,lastRaw=null,broken=false,pending=null,deletingId=null;
   let discipline=new URLSearchParams(location.search).get('discipline')||'bench';if(!G.disciplines[discipline])discipline='bench';
   const localToday=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
   const status=(message,error=false)=>{const el=$('#storage-status');el.textContent=message;el.classList.toggle('error',error);};
-  const active=()=>state.active==='original'?original:state.plans.find(p=>p.id===state.active);
+  const active=()=>state.plans.find(p=>p.id===state.active);
   const logKey=(id=selected)=>state.active+'|'+id;
   function persist(next){
     pending=next;
@@ -19,16 +20,15 @@ window.Planner=(()=>{
     }catch(e){status('Не сохранено: '+e.message+' Скачайте резервную копию.',true);return false;}
   }
   function activate(id){
-    if(!original)return;
-    plan=id==='original'?original:state.plans.find(p=>p.id===id);if(!plan)return;
+    plan=state.plans.find(p=>p.id===id);if(!plan)return;
     state.active=id;discipline=plan.profile?.discipline||'bench';$('#discipline-select').value=discipline;$('#empty-plan').hidden=true;$('#weeks').parentElement.hidden=false;$('#detail').hidden=false;
     const today=localToday();selected=plan.sessions.find(s=>'#'+s.id===location.hash)?.id||plan.sessions.find(s=>s.date>=today)?.id||plan.sessions.at(-1).id;
-    const select=$('#plan-select');select.replaceChildren(...(discipline==='bench'?[new Option('Исходный план жима · 2026','original')]:[]),...state.plans.filter(p=>(p.profile.discipline||'bench')===discipline).map(p=>new Option(p.name+' · '+p.sessions.at(-1).date,p.id)));select.value=id;
-    $('#plan-summary').textContent=plan.meta?summary(plan):'Исходный план на 150 кг. 132,5 × 3 выполнялись без паузы; максимум с паузой не подтверждён.';
+    const select=$('#plan-select');select.replaceChildren(...state.plans.filter(p=>(p.profile.discipline||'bench')===discipline).map(p=>new Option(p.name+' · '+p.sessions.at(-1).date,p.id)));select.value=id;select.disabled=false;$('#delete-plan').hidden=false;
+    $('#plan-summary').textContent=summary(plan);
     const trajectory=plan.meta?.progression?.trajectory,overview=$('#progression-overview');
     overview.hidden=!trajectory?.first||!trajectory?.last;
     if(!overview.hidden)overview.textContent=trajectoryText(plan)+' · Ступени подтверждаются по RPE';
-    const notices=plan.meta?plan.meta.warnings.slice(2,5):plan.rules.slice(0,2);
+    const notices=plan.meta.warnings.slice(2,5);
     $('#rules').replaceChildren(...notices.map(t=>{const li=document.createElement('li');li.textContent=t;return li;}));
     verified.lastChild.textContent=discipline==='bench'?'Пауза соблюдена, рабочая часть выполнена без боли':'Техника и амплитуда соблюдены, рабочая часть выполнена без боли';renderCalendar();renderDetail();
   }
@@ -82,8 +82,7 @@ window.Planner=(()=>{
       if(persist(next))status('Расчёт исправлен · даты и записанные подходы сохранены');
     }catch(e){status('Не удалось обновить старый расчёт: '+e.message,true);}
   }
-  function boot(data){
-    original={...data,id:'original',name:'Путь к 150 кг · 2026'};
+  function boot(){
     try{lastRaw=window.MGymStorage.getItem(KEY);if(lastRaw)state=G.validateState(JSON.parse(lastRaw));}catch(e){broken=lastRaw!==null;status(broken?'Сохранённые данные повреждены. Оригинал доступен через «Мои данные» → резервная копия.':'Хранилище браузера недоступно. Используйте резервную копию.',true);}
     upgradeLibrary();if(!new URLSearchParams(location.search).has('discipline'))discipline=active()?.profile?.discipline||'bench';chooseDiscipline(discipline);
   }
@@ -91,14 +90,26 @@ window.Planner=(()=>{
     discipline=d;$('#discipline-select').value=d;
     const candidates=state.plans.filter(p=>(p.profile.discipline||'bench')===d);
     const chosen=candidates.find(p=>p.id===state.active)||candidates.find(p=>p.id===state.current?.[d])||candidates.at(-1);
-    if(chosen){activate(chosen.id);return;}if(d==='bench'){activate('original');return;}
-    $('#plan-select').replaceChildren(new Option('План ещё не создан',''));$('#plan-summary').textContent='Создайте персональную программу: '+G.disciplines[d];$('#rules').replaceChildren();$('#progression-overview').hidden=true;$('#empty-plan').hidden=false;$('#weeks').parentElement.hidden=true;$('#detail').hidden=true;
+    if(chosen){activate(chosen.id);return;}
+    plan=null;selected=null;$('#plan-select').replaceChildren(new Option('План ещё не создан',''));$('#plan-select').disabled=true;$('#delete-plan').hidden=true;$('#plan-summary').textContent='Создайте персональную программу: '+G.disciplines[d];$('#rules').replaceChildren();$('#progression-overview').hidden=true;$('#empty-plan').hidden=false;$('#weeks').replaceChildren();$('#sessions').replaceChildren();$('#detail').replaceChildren();$('#weeks').parentElement.hidden=true;$('#detail').hidden=true;
   }
   function updateTechnique(){const d=form.elements.discipline.value;const options=form.elements.technique.options;options[0].textContent=d==='bench'?'С паузой 1–2 секунды':d==='squat'?'Глубина и фиксация соблюдены':'С пола, без отбива, полная фиксация';options[1].textContent=d==='bench'?'Без паузы / не уверен':'Техника не подтверждена';}
   $('#discipline-select').addEventListener('change',e=>chooseDiscipline(e.target.value));
   form.elements.discipline.addEventListener('change',updateTechnique);
   $('#new-plan').addEventListener('click',openGenerator);
-  $('#plan-select').addEventListener('change',e=>{const next={...state,active:e.target.value,current:{...state.current,[discipline]:e.target.value}};if(e.target.value==='original')delete next.current[discipline];if(persist(next))activate(next.active);});
+  $('#plan-select').addEventListener('change',e=>{const next={...state,active:e.target.value,current:{...state.current,[discipline]:e.target.value}};if(persist(next))activate(next.active);});
+  $('#delete-plan').addEventListener('click',()=>{
+    if(!plan)return;deletingId=plan.id;$('#delete-plan-name').textContent=plan.name;$('#delete-error').textContent='';$('#delete-dialog').showModal();
+  });
+  $('#confirm-delete').addEventListener('click',()=>{
+    try{
+      if(broken||window.MGymStorage.getItem(KEY)!==lastRaw)throw Error('Данные изменены в другой вкладке. Обновите страницу перед сохранением.');
+      const next=G.removePlan(state,deletingId);
+      window.MGymStorage.setItem(DELETION_BACKUP,lastRaw||JSON.stringify(state));
+      if(!persist(next))throw Error($('#storage-status').textContent);
+      deletingId=null;history.replaceState(null,'',location.pathname+location.search);$('#delete-dialog').close();chooseDiscipline(discipline);status('План удалён. Копия до удаления доступна в «Мои данные».');
+    }catch(e){$('#delete-error').textContent=e.message;}
+  });
   document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
   form.elements.resultType.addEventListener('change',resultMode);
   form.addEventListener('input',()=>{draft=null;$('#preview').hidden=true;});
@@ -131,7 +142,7 @@ window.Planner=(()=>{
   });
   $('#import-data').addEventListener('change',async e=>{
     incoming=null;$('#import-preview').hidden=true;const file=e.target.files[0];if(!file)return;
-    try{if(file.size>2000000)throw Error('Файл больше 2 МБ.');incoming=G.validateState(JSON.parse(await file.text()));$('#import-summary').textContent='В копии: '+incoming.plans.length+' программ, '+Object.keys(incoming.logs).length+' записей тренировок. Они будут добавлены. При совпадении программа получит отдельную копию; текущие результаты исходного плана имеют приоритет.';$('#import-preview').hidden=false;$('#data-message').textContent='Файл проверен.';}catch(err){$('#data-message').textContent='Не удалось открыть: '+err.message;}e.target.value='';
+    try{if(file.size>2000000)throw Error('Файл больше 2 МБ.');incoming=G.validateState(JSON.parse(await file.text()));$('#import-summary').textContent='В копии: '+incoming.plans.length+' программ, '+Object.keys(incoming.logs).length+' записей тренировок. Они будут добавлены. При совпадении программа получит отдельную копию; текущие результаты сохранятся.';$('#import-preview').hidden=false;$('#data-message').textContent='Файл проверен.';}catch(err){$('#data-message').textContent='Не удалось открыть: '+err.message;}e.target.value='';
   });
   $('#confirm-import').addEventListener('click',()=>{
     if(!incoming)return;
@@ -139,12 +150,15 @@ window.Planner=(()=>{
     const map=new Map(),plans=[...state.plans],logs={...state.logs};
     for(const p of incoming.plans){const id=plans.some(v=>v.id===p.id)?'p-'+crypto.randomUUID():p.id;map.set(p.id,id);plans.push({...G.upgrade(p,incoming.logs,localToday()),id});}
     for(const [key,value] of Object.entries(incoming.logs)){const split=key.lastIndexOf('|'),id=key.slice(0,split),suffix=key.slice(split);if(id==='original'){if(!Object.hasOwn(logs,key))logs[key]=value;}else if(map.has(id))logs[map.get(id)+suffix]=value;}
-    const next={version:1,plans,logs,active:map.get(incoming.active)||'original'};
+    const next={version:1,plans,logs,active:map.get(incoming.active)||state.active||plans.at(-1)?.id||''};
     const wasBroken=broken;broken=false;
-    if(persist(next)){incoming=null;$('#import-preview').hidden=true;$('#data-message').textContent='Копия восстановлена. Даты сохранены.';activate(next.active);}else {broken=wasBroken;$('#data-message').textContent=$('#storage-status').textContent;}
+    if(persist(next)){incoming=null;$('#import-preview').hidden=true;$('#data-message').textContent='Копия восстановлена. Даты сохранены.';if(next.active)activate(next.active);else chooseDiscipline(discipline);}else {broken=wasBroken;$('#data-message').textContent=$('#storage-status').textContent;}
   });
   window.addEventListener('storage',e=>{if(e.key===KEY)status('Данные изменены в другой вкладке. Обновите страницу, чтобы продолжить.',true);});
   const reviewButton=document.createElement('button');reviewButton.type='button';reviewButton.textContent='Проверить нагрузку по результатам';reviewButton.addEventListener('click',openReview);$('.info-content').append(reviewButton);
+  $('#export-before-delete').addEventListener('click',()=>{
+    try{const raw=window.MGymStorage.getItem(DELETION_BACKUP);if(!raw){$('#data-message').textContent='Удалённых планов на этом устройстве ещё нет.';return;}if(!window.MGymNative.exportBackup(raw))throw Error('Не удалось подготовить копию.');}catch(e){$('#data-message').textContent=e.message;}
+  });
   const verified=document.createElement('label');verified.className='check-label';verified.innerHTML='<input type="checkbox" name="verified">Пауза соблюдена, рабочая часть выполнена без боли';$('#log-advice').before(verified);
   $('#apply-review').addEventListener('click',()=>{
     try{const p=G.applyReview(active(),state.logs,localToday());if(persist({...state,plans:state.plans.map(v=>v.id===p.id?p:v)})){activate(p.id);$('#review-dialog').close();status('Поправка применена. '+p.meta.lastAdjustment);}else $('#review-message').textContent=$('#storage-status').textContent;}catch(e){$('#review-message').textContent=e.message;$('#apply-review').hidden=true;}

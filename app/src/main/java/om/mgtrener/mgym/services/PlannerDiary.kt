@@ -25,6 +25,7 @@ internal object PlannerDiary {
                     require(state.getInt("version")==1)
                     val plans=state.getJSONArray("plans"); val logs=state.getJSONObject("logs")
                     require(plans.length()<=20 && logs.length()<=13000)
+                    // Historical mapping only: never offered as a program or loaded by the WebView.
                     val original=JSONObject(context.assets.open("bench-planner/plan.json").bufferedReader().use { it.readText() })
                     val byId=mutableMapOf("original" to original)
                     for(i in 0 until plans.length()) { val plan=plans.getJSONObject(i);byId[plan.getString("id")]=plan }
