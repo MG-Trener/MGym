@@ -23,3 +23,6 @@ keystore.properties
 
 /.kotlin/
 /outputs/
+/.private/
+gha-creds-*.json
+__pycache__/

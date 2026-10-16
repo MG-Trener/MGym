@@ -105,10 +105,23 @@ fun SettingsScreen(model: GymViewModel) {
             }
         }
     }
-    if(BuildConfig.STORE_DISTRIBUTION) Panel { LocalizedText("Версия ${BuildConfig.VERSION_NAME}. Обновления — через Google Play.") }
+    if(BuildConfig.STORE_DISTRIBUTION) Panel {
+        LocalizedText("Версия ${BuildConfig.VERSION_NAME}. Обновления — через Google Play.")
+        LocalizedText("Включите автообновление MGym в Google Play. Изменения появятся после выхода новой версии в магазине.",style=MaterialTheme.typography.bodySmall)
+        OutlinedButton(onClick={
+            val page="https://play.google.com/store/apps/details?id=${BuildConfig.APPLICATION_ID}"
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW,"market://details?id=${BuildConfig.APPLICATION_ID}".toUri()).setPackage("com.android.vending")) }
+                .recoverCatching { context.startActivity(Intent(Intent.ACTION_VIEW,page.toUri())) }
+                .onFailure {model.notify("Не удалось открыть Google Play")}
+        },modifier=Modifier.fillMaxWidth()) { LocalizedText("Открыть Google Play ↗") }
+    }
     Panel {
         LocalizedText("О MGym", style = MaterialTheme.typography.titleLarge)
         LocalizedText("Тренировочные данные хранятся локально на устройстве.")
+        OutlinedButton(onClick={
+            runCatching {context.startActivity(Intent(Intent.ACTION_SENDTO,"mailto:info@mg-trener.com".toUri()))}
+                .onFailure {model.notify("Контакт поддержки: info@mg-trener.com")}
+        },modifier=Modifier.fillMaxWidth()) { LocalizedText("Поддержка · info@mg-trener.com") }
         LocalizedText("MGym сделан на энтузиазме спортсмена и бесплатен для всех желающих. Без регистрации и рекламы. История не отправляется в интернет. Расчётный e1RM — статистическая оценка, а не проверенный максимум.")
         LocalizedText("MGym не является медицинским изделием, не диагностирует, не лечит и не предотвращает заболевания. По вопросам здоровья и допустимости нагрузок обратитесь к медицинскому специалисту.",style=MaterialTheme.typography.bodySmall)
         OutlinedButton(onClick={ runCatching { context.startActivity(Intent(Intent.ACTION_VIEW,("https://mgym.mg-trener.com/" + if(om.mgtrener.mgym.i18n.Language.tag=="ru") "privacy.html" else "privacy-en.html").toUri())) }.onFailure {model.notify("Не удалось открыть политику конфиденциальности")} },modifier=Modifier.fillMaxWidth()) {LocalizedText("Конфиденциальность ↗")}

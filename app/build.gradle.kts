@@ -3,8 +3,28 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+abstract class VerifyPlaySigning : DefaultTask() {
+    @get:Input abstract val configured: Property<Boolean>
+    @get:Input abstract val allowUnsigned: Property<Boolean>
+    @TaskAction fun verify() {
+        check(configured.get() || allowUnsigned.get()) {
+            "Google Play requires an upload-signed bundle. Configure MGYM_UPLOAD_* or use -PmgymAllowUnsignedBundle=true for inspection only."
+        }
+    }
+}
+
+val uploadVars = listOf("MGYM_UPLOAD_STORE", "MGYM_UPLOAD_STORE_PASSWORD", "MGYM_UPLOAD_ALIAS", "MGYM_UPLOAD_KEY_PASSWORD")
+val uploadReady = uploadVars.all { !System.getenv(it).isNullOrBlank() }
+val verifyPlaySigning = tasks.register<VerifyPlaySigning>("verifyPlaySigning") {
+    configured.set(uploadReady)
+    allowUnsigned.set(providers.gradleProperty("mgymAllowUnsignedBundle").map { it == "true" }.orElse(false))
+}
+tasks.matching { it.name in setOf("bundleRelease", "assembleRelease", "packageReleaseBundle", "validateSigningRelease") }
+    .configureEach { dependsOn(verifyPlaySigning) }
+
 android {
     namespace = "om.mgtrener.mgym"
+    testBuildType = if (providers.gradleProperty("mgymStoreUiTest").orNull == "true") "release" else "debug"
     compileSdk {
         version = release(37)
     }
@@ -14,14 +34,12 @@ android {
             "om.mgtrener.mgym.uitest" else "om.mgtrener.mgym"
         minSdk = 30
         targetSdk = 37
-        versionCode = 20
-        versionName = "0.7.0"
+        versionCode = 21
+        versionName = "0.7.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    val uploadVars = listOf("MGYM_UPLOAD_STORE", "MGYM_UPLOAD_STORE_PASSWORD", "MGYM_UPLOAD_ALIAS", "MGYM_UPLOAD_KEY_PASSWORD")
-    val uploadReady = uploadVars.all { !System.getenv(it).isNullOrBlank() }
     if (uploadReady) signingConfigs.create("upload") {
         storeFile = file(System.getenv("MGYM_UPLOAD_STORE"))
         storePassword = System.getenv("MGYM_UPLOAD_STORE_PASSWORD")

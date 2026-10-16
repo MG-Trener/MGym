@@ -1,0 +1,115 @@
+name: Подписанная сборка Google Play
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Загрузить во внутренний трек Google Play (нужна первичная настройка)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: mgym-google-play
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: google-play
+    outputs:
+      code: ${{ steps.version.outputs.code }}
+      name: ${{ steps.version.outputs.name }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Версия исходников и тега
+        id: version
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          text=pathlib.Path('app/build.gradle.kts').read_text()
+          code=re.search(r'versionCode = (\d+)',text).group(1)
+          name=re.search(r'versionName = "([^"]+)"',text).group(1)
+          assert re.fullmatch(r'\d+\.\d+\.\d+', name), 'Invalid release version'
+          if os.environ['GITHUB_REF'].startswith('refs/tags/'):
+              assert os.environ['GITHUB_REF_NAME']=='v'+name, 'Tag and Android version differ'
+          with open(os.environ['GITHUB_OUTPUT'],'a') as file:
+              file.write('code='+code+'\nname='+name+'\n')
+          PY
+      - name: Проверки
+        run: |
+          node --test tests/bench-planner/*.test.cjs
+          python3 tools/play-publish.test.py
+      - name: Android SDK
+        run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0'
+      - name: Подписать и проверить AAB
+        env:
+          KEYSTORE_BASE64: ${{ secrets.MGYM_UPLOAD_KEYSTORE_BASE64 }}
+          MGYM_UPLOAD_STORE_PASSWORD: ${{ secrets.MGYM_UPLOAD_STORE_PASSWORD }}
+          MGYM_UPLOAD_ALIAS: ${{ secrets.MGYM_UPLOAD_ALIAS }}
+          MGYM_UPLOAD_KEY_PASSWORD: ${{ secrets.MGYM_UPLOAD_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_BASE64" && test -n "$MGYM_UPLOAD_STORE_PASSWORD" && test -n "$MGYM_UPLOAD_ALIAS" && test -n "$MGYM_UPLOAD_KEY_PASSWORD" || { echo 'Configure upload signing secrets in google-play environment'; exit 1; }
+          export MGYM_UPLOAD_STORE="$RUNNER_TEMP/mgym-upload.p12"
+          trap 'rm -f "$MGYM_UPLOAD_STORE"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$MGYM_UPLOAD_STORE"
+          chmod 600 "$MGYM_UPLOAD_STORE"
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest :app:lintRelease :app:bundleRelease --console=plain
+          jarsigner -verify app/build/outputs/bundle/release/app-release.aab
+          curl --fail --location --silent --show-error https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar --output "$RUNNER_TEMP/bundletool.jar"
+          echo "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  $RUNNER_TEMP/bundletool.jar" | sha256sum --check
+          java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest --bundle app/build/outputs/bundle/release/app-release.aab > "$RUNNER_TEMP/play-manifest.xml"
+          python3 tools/verify-play-artifact.py --bundle app/build/outputs/bundle/release/app-release.aab --manifest "$RUNNER_TEMP/play-manifest.xml"
+          cp app/build/outputs/bundle/release/app-release.aab "MGym-${{ steps.version.outputs.name }}-play.aab"
+          sha256sum "MGym-${{ steps.version.outputs.name }}-play.aab" > SHA256SUMS-play.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: MGym-play-signed
+          path: |
+            MGym-*-play.aab
+            SHA256SUMS-play.txt
+          if-no-files-found: error
+          retention-days: 30
+  upload:
+    needs: build
+    if: vars.GOOGLE_PLAY_PUBLISH_ENABLED == 'true' && (github.event_name == 'release' || inputs.publish)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: google-play
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Скачать сборку текущего запуска
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name MGym-play-signed --dir play-bundle
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        id: google
+        with:
+          workload_identity_provider: ${{ vars.GOOGLE_PLAY_WIF_PROVIDER }}
+          service_account: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/androidpublisher
+          create_credentials_file: false
+      - name: Проверить и загрузить внутренний выпуск без отправки на проверку
+        env:
+          PLAY_ACCESS_TOKEN: ${{ steps.google.outputs.access_token }}
+          PLAY_RELEASE_STATUS: ${{ vars.GOOGLE_PLAY_INTERNAL_STATUS || 'draft' }}
+          VERSION_CODE: ${{ needs.build.outputs.code }}
+          VERSION_NAME: ${{ needs.build.outputs.name }}
+        run: |
+          cd play-bundle && sha256sum --check SHA256SUMS-play.txt && cd ..
+          python3 tools/play-publish.py --bundle "play-bundle/MGym-$VERSION_NAME-play.aab" --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" --status "$PLAY_RELEASE_STATUS"
