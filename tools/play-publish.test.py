@@ -50,6 +50,24 @@ class PlayPublishTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 publisher.track_payload(code, '0.6.2', status)
 
+    def test_access_probe_never_commits_and_cleans_up_on_failure(self):
+        for failed in (False, True):
+            calls = []
+            def request(method, url, data=None):
+                calls.append((method, url))
+                if method == 'POST':
+                    return {'id': 'probe'}
+                if method == 'GET' and failed:
+                    raise RuntimeError('permission denied')
+                return {}
+            if failed:
+                with self.assertRaises(RuntimeError):
+                    publisher.check_access(request)
+            else:
+                publisher.check_access(request)
+            self.assertEqual([method for method, _ in calls], ['POST', 'GET', 'DELETE'])
+            self.assertFalse(any(':commit' in url for _, url in calls))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -27,7 +27,7 @@ jobs:
           node --test tests/bench-planner/*.test.cjs
           python3 tools/play-publish.test.py
       - name: Android SDK
-        run: '"${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "build-tools;37.0.0"'
+        run: '"${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0"'
       - name: JVM, lint и контрольная сборка без подписи
         run: |
           chmod +x gradlew
