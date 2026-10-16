@@ -10,13 +10,15 @@ PACKAGE = 'om.mgtrener.mgym'
 BASE = 'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/' + PACKAGE
 
 
-def track_payload(version_code, version_name, status='draft'):
+def track_payload(version_code, version_name, status='draft', existing_releases=()):
     if not isinstance(version_code, int) or version_code < 1:
         raise ValueError('Invalid versionCode')
     if status not in ('draft', 'completed'):
         raise ValueError('Only draft or internal completed releases are supported')
-    return {'track': 'internal', 'releases': [{'name': version_name,
-            'versionCodes': [str(version_code)], 'status': status}]}
+    candidate = {'name': version_name, 'versionCodes': [str(version_code)], 'status': status}
+    # A draft must not remove the completed release installed by current testers.
+    releases = [dict(release) for release in existing_releases] if status == 'draft' else []
+    return {'track': 'internal', 'releases': releases + [candidate]}
 
 
 def publish(bundle, version_code, version_name, status, request):
@@ -28,11 +30,15 @@ def publish(bundle, version_code, version_name, status, request):
                  for code in release.get('versionCodes', [])]
         if codes and version_code <= max(codes):
             raise ValueError('Increase versionCode before uploading a new Play release')
+        existing = next((track.get('releases', []) for track in tracks
+                         if track.get('track') == 'internal'), [])
+        if any(release.get('status') == 'draft' for release in existing):
+            raise ValueError('Review or discard the existing internal draft in Play Console before uploading another release')
         uploaded = request('POST', 'https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/'
                            + PACKAGE + '/edits/' + edit + '/bundles?uploadType=media', bundle.read_bytes())
         if int(uploaded['versionCode']) != version_code:
             raise ValueError('Uploaded bundle versionCode does not match the expected source version')
-        request('PUT', url + '/tracks/internal', track_payload(version_code, version_name, status))
+        request('PUT', url + '/tracks/internal', track_payload(version_code, version_name, status, existing))
         request('POST', url + ':validate', {})
         request('POST', url + ':commit?changesNotSentForReview=true', {})
     except Exception:

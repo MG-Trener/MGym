@@ -9,14 +9,15 @@ spec.loader.exec_module(publisher)
 
 
 class PlayPublishTest(unittest.TestCase):
-    def run_publish(self, uploaded=20, prior=19, fail=False):
+    def run_publish(self, uploaded=20, prior=19, fail=False, existing_draft=False):
         calls = []
         def request(method, url, data=None):
             calls.append((method, url, data))
             if url.endswith('/edits'):
                 return {'id': 'edit-1'}
             if url.endswith('/tracks'):
-                return {'tracks': [{'releases': [{'versionCodes': [str(prior)]}]}]}
+                return {'tracks': [{'track': 'internal', 'releases': [
+                    {'versionCodes': [str(prior)], 'status': 'draft' if existing_draft else 'completed'}]}]}
             if 'uploadType=media' in url:
                 return {'versionCode': uploaded}
             if fail and url.endswith(':validate'):
@@ -35,7 +36,22 @@ class PlayPublishTest(unittest.TestCase):
         self.assertTrue(calls[-2][1].endswith(':validate'))
         track = next(data for method, url, data in calls if method == 'PUT')
         self.assertEqual(track['track'], 'internal')
-        self.assertEqual(track['releases'][0]['status'], 'draft')
+        self.assertEqual(track['releases'][-1]['status'], 'draft')
+        self.assertEqual(track['releases'][0], {'versionCodes': ['19'], 'status': 'completed'})
+
+    def test_existing_draft_is_not_overwritten_or_uploaded_over(self):
+        function, bundle, calls, request = self.run_publish(existing_draft=True)
+        with self.assertRaisesRegex(ValueError, 'existing internal draft'):
+            function(bundle, 20, '0.6.2', 'draft', request)
+        self.assertFalse(any('uploadType' in url or method == 'PUT' or ':commit' in url
+                             for method, url, _ in calls))
+        self.assertEqual(calls[-1][0], 'DELETE')
+
+    def test_completed_release_replaces_previous_release(self):
+        payload = publisher.track_payload(20, '0.6.2', 'completed',
+                                          [{'versionCodes': ['19'], 'status': 'completed'}])
+        self.assertEqual(payload['releases'], [
+            {'name': '0.6.2', 'versionCodes': ['20'], 'status': 'completed'}])
 
     def test_version_mismatch_or_google_rejection_never_commits(self):
         for options in ({'uploaded': 21}, {'prior': 20}, {'fail': True}):
