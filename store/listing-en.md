@@ -2,7 +2,7 @@
 
 ## Title
 
-MGym — Strength Training
+MGym
 
 ## Short description
 
